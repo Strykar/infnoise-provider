@@ -1,0 +1,73 @@
+# Valgrind suppressions for OpenSSL internals.
+# These are well-known false positives in OpenSSL's allocator and
+# one-time init code; they do not indicate bugs in our provider.
+
+{
+   openssl_init_once
+   Memcheck:Leak
+   ...
+   fun:OPENSSL_init_crypto
+}
+
+{
+   openssl_init_once2
+   Memcheck:Leak
+   ...
+   fun:OPENSSL_init_ssl
+}
+
+{
+   openssl_provider_load
+   Memcheck:Leak
+   ...
+   fun:OSSL_PROVIDER_load
+}
+
+{
+   openssl_lib_ctx
+   Memcheck:Leak
+   ...
+   fun:OSSL_LIB_CTX_new
+}
+
+{
+   openssl_err_state
+   Memcheck:Leak
+   ...
+   fun:CRYPTO_THREAD_set_local
+}
+
+{
+   openssl_obj_create
+   Memcheck:Leak
+   ...
+   fun:OBJ_nid2sn
+}
+
+{
+   openssl_engine_cleanup
+   Memcheck:Leak
+   ...
+   fun:ERR_new
+}
+
+{
+   libftdi_usb_open
+   Memcheck:Leak
+   ...
+   fun:ftdi_usb_open_desc_index
+}
+
+{
+   libftdi_init
+   Memcheck:Leak
+   ...
+   fun:ftdi_new
+}
+
+{
+   libusb_init
+   Memcheck:Leak
+   ...
+   fun:libusb_*
+}

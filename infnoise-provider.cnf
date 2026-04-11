@@ -1,0 +1,29 @@
+# OpenSSL configuration to load the Infinite Noise TRNG provider.
+#
+# Usage:
+#   export OPENSSL_CONF="infnoise-provider.cnf"
+#   openssl rand 10000000 | ent
+#
+# Or append the provider section to your system openssl.cnf.
+
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = provider_sect
+random = random_sect
+
+[provider_sect]
+default = default_sect
+infnoise = infnoise_sect
+
+[default_sect]
+activate = 1
+
+[infnoise_sect]
+# Adjust module path to match your install location.
+module = /usr/lib/ossl-modules/infnoise.so
+activate = 1
+
+[random_sect]
+# Use the infnoise TRNG as the seed source for all DRBG instances.
+seed = infnoise

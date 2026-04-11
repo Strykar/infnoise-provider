@@ -1,0 +1,5 @@
+*.o
+*.so
+test_infnoise_prov
+test_infnoise_prov-asan
+test_infnoise_prov-ubsan
