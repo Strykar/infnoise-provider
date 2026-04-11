@@ -145,19 +145,21 @@ static void test_hw_read_raw(void)
     }
 
     uint8_t buf[BUFLEN];
-    uint32_t n = readData(&ctx, buf, false, 1);
+    int32_t rc = readData(&ctx, buf, false, 1);
     deinitInfnoise(&ctx);
 
-    if (ctx.errorFlag) {
+    if (rc < 0) {
         test_fail(name, "readData error: %s",
                   ctx.message ? ctx.message : "unknown");
         return;
     }
 
-    if (n == 0) {
+    if (rc == 0) {
         test_fail(name, "readData returned 0 bytes");
         return;
     }
+
+    uint32_t n = (uint32_t)rc;
 
     // Sanity: at least some bytes should be nonzero.
     int nonzero = 0;
@@ -190,14 +192,14 @@ static void test_hw_read_multiple(void)
     size_t total = 0;
     for (int i = 0; i < 10; i++) {
         uint8_t buf[BUFLEN];
-        uint32_t n = readData(&ctx, buf, false, 1);
-        if (ctx.errorFlag) {
+        int32_t rc = readData(&ctx, buf, false, 1);
+        if (rc < 0) {
             deinitInfnoise(&ctx);
             test_fail(name, "readData error on iteration %d: %s",
                       i, ctx.message ? ctx.message : "unknown");
             return;
         }
-        total += n;
+        total += (uint32_t)rc;
     }
     deinitInfnoise(&ctx);
 

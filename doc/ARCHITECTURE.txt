@@ -1,24 +1,22 @@
 ================================================================================
-        Infinite Noise TRNG — ENGINE to OpenSSL 3.x Provider Refactor
-                            Document v1.2.0
+        Infinite Noise TRNG — OpenSSL 3.x Provider
+                            Document v1.4.0
 ================================================================================
 
 1. OVERVIEW
 -----------
-This document tracks the refactoring of the Infinite Noise TRNG OpenSSL
-integration from the deprecated ENGINE API (OpenSSL < 3.0) to the current
-Provider API (OpenSSL 3.x).  It records architecture decisions, adversarial
-security findings, deployment attack surface analysis, test coverage, and
-all changes made.
+This document covers the Infinite Noise TRNG OpenSSL 3.x Provider — a new
+implementation of the Provider API (replacing the legacy ENGINE approach).
+It records architecture decisions, adversarial security findings, deployment
+attack surface analysis, test coverage, and all changes made.
 
-Original code:  e_infnoise.c (210 lines, ENGINE API, by Thomás Inskip)
-New code:       infnoise_prov.c (630 lines, Provider API, v1.2.0)
-Test harness:   test_infnoise_prov.c (27 tests across 5 layers)
-Original repo:  https://github.com/tinskip/infnoise-openssl (inactive since Oct 2020)
-New repo:       https://github.com/Strykar/infnoise-openssl
+Provider:       src/infnoise_prov.c (Provider API, v1.4.0)
+Test harness:   test/test_infnoise_prov.c (27 tests across 5 layers)
+Legacy ENGINE:  https://github.com/tinskip/infnoise-openssl (dormant since Oct 2020)
+This repo:      https://github.com/Strykar/infnoise-provider
 
 
-2. ARCHITECTURE MAPPING (ENGINE -> PROVIDER)
+2. ARCHITECTURE (ENGINE vs PROVIDER COMPARISON)
 ---------------------------------------------
 
   ENGINE Concept              Provider Equivalent
@@ -36,7 +34,7 @@ New repo:       https://github.com/Strykar/infnoise-openssl
   (none)                      OSSL_FUNC_RAND_RESEED (no-op for TRNG)
 
 Key design changes:
-  - No global state: each RAND context owns its own TRNG handle and ring
+  - No global state: each RAND context owns its own TRNG handle and spill
     buffer, allocated via OPENSSL_zalloc, freed via OPENSSL_clear_free.
   - Explicit lifecycle: instantiate opens the USB device, uninstantiate
     closes it and cleanses all buffers, freectx releases everything.
@@ -49,7 +47,7 @@ Key design changes:
 3. REFERENCE IMPLEMENTATIONS STUDIED
 --------------------------------------
 
-The following real-world providers were studied before writing the refactor:
+The following real-world providers were studied before writing this provider:
 
   1. OpenSSL seed_src.c — Simplest RAND provider (OS entropy).  Establishes
      the newctx/freectx/instantiate/generate/dispatch-table pattern.
@@ -81,9 +79,10 @@ to the kernel.  14 findings total, all resolved:
 
   #   Severity   Finding                           Resolution
   --  ---------  --------------------------------  ----------------------------
-  1   HIGH       Ring buffer not cleansed after     OPENSSL_cleanse after every
-                 read — stale TRNG bytes remain     RingBufferRead memcpy
-                 in memory
+  1   HIGH       Buffer not cleansed after read —   OPENSSL_cleanse after every
+                 stale TRNG bytes remain in         drain; replaced in v1.3.0
+                 memory                             by spill buffer with
+                                                    cleanse-on-drain
 
   2   HIGH       Stack buffer (rand_buffer) not     OPENSSL_cleanse(rand_buffer)
                  cleansed on error paths in         on all exit paths including
@@ -121,10 +120,10 @@ to the kernel.  14 findings total, all resolved:
                  from provider params — OpenSSL     and get_params; returns 1
                  status queries silently fail
 
-  11  LOW        verify_zeroization was a stub      Implemented: walks ring
-                 returning 1 unconditionally        buffer bytes post-
-                                                    uninstantiate, returns 0
-                                                    if any nonzero
+  11  LOW        verify_zeroization was a stub      Implemented: CRYPTO_memcmp
+                 returning 1 unconditionally        against zero buffer post-
+                                                    uninstantiate (constant-
+                                                    time, compiler-safe)
 
   12  INFO       No secure allocation for seed      get_seed uses
                  buffers                            OPENSSL_secure_malloc;
@@ -207,22 +206,23 @@ Attack surface analysis of infnoise.so deployed as an OpenSSL provider in
   entropy content.  The Keccak sponge ensures output is
   cryptographically independent of timing.
 
-5.7  Ring buffer state corruption (memory safety)
+5.7  Spill buffer state corruption (memory safety)
 
-  If r_idx, w_idx, or bytes_in_buffer are corrupted by a memory safety
-  bug elsewhere in the process, the ring buffer could read/write out of
+  If offset or length fields are corrupted by a memory safety bug
+  elsewhere in the process, the spill buffer could read/write out of
   bounds within the PROV_INFNOISE allocation.
 
   Mitigation: we cannot defend against arbitrary memory corruption
-  from other code in the same address space.  The ring buffer is inside
-  a heap allocation sized by OPENSSL_zalloc(sizeof(PROV_INFNOISE)), so
-  out-of-bounds ring buffer access stays within the allocation and
-  will be caught by ASan.  Our canary-based boundary test explicitly
-  verifies no overflow occurs at ring buffer wrap points.
+  from other code in the same address space.  The spill buffer is
+  simpler than the ring buffer it replaced (flat array, no wrap-around)
+  and is inside a heap allocation sized by
+  OPENSSL_zalloc(sizeof(PROV_INFNOISE)), so out-of-bounds access stays
+  within the allocation and will be caught by ASan.  Boundary tests
+  verify correct behavior at BUFLEN boundaries.
 
 5.8  Residual trng_context data after uninstantiate
 
-  verify_zeroization checks the ring buffer but not the trng_context
+  verify_zeroization checks the spill buffer but not the trng_context
   struct (which contains FTDI state, not entropy).
 
   Assessment: MINIMAL risk.  trng_context is cleansed in
@@ -251,7 +251,7 @@ The provider enforces the following security invariants:
 
   Property                    Mechanism
   --------------------------  -------------------------------------------
-  No stale entropy in memory  OPENSSL_cleanse on ring buffer after read,
+  No stale entropy in memory  OPENSSL_cleanse on spill buffer after drain,
                               on stack buffers after use, on output buffer
                               on error, on uninstantiate
 
@@ -274,11 +274,14 @@ The provider enforces the following security invariants:
   Seed security               get_seed uses OPENSSL_secure_malloc (mlock'd
                               pages); clear_seed uses secure_clear_free
 
-  Zeroization verification    verify_zeroization walks ring buffer bytes
-                              after uninstantiate to confirm zeroed
+  Zeroization verification    verify_zeroization uses CRYPTO_memcmp
+                              against zero buffer (constant-time,
+                              compiler cannot optimise away)
 
   Binary hardening            Full RELRO, stack canary, NX, PIE, stripped,
-                              FORTIFY_SOURCE=2, -fstack-protector-strong
+                              FORTIFY_SOURCE=3, -fstack-protector-strong,
+                              -fcf-protection (CET/IBT), -fstack-clash-
+                              protection, -fno-plt
 
 
 7. TEST COVERAGE
@@ -325,7 +328,7 @@ Layer 4: Statistical quality (4 tests)
 Layer 5: Memory safety and robustness (4 tests)
   mem_ctx_churn          100 newctx/freectx cycles (leak detection)
   mem_instantiate_churn  10 full instantiate/generate/free cycles
-  mem_boundary_generate  Ring buffer boundary sizes with canary check
+  mem_boundary_generate  Spill buffer boundary sizes (1,511-513,1023-1025,2048)
   mem_zero_length_generate  generate(0) succeeds without error
 
 
@@ -343,9 +346,10 @@ Makefile.provider targets:
   install           Install to $(MODULESDIR) [/usr/lib/ossl-modules]
   clean             Remove all build artifacts
 
-Hardening flags:
-  CFLAGS:  -fPIC -Wall -Wextra -O2 -D_FORTIFY_SOURCE=2
-           -fstack-protector-strong
+Hardening flags (matching Arch Linux OpenSSL build):
+  CFLAGS:  -fPIC -Wall -Wextra -O2 -D_FORTIFY_SOURCE=3
+           -fstack-protector-strong -fcf-protection
+           -fstack-clash-protection -fno-plt
   LDFLAGS: -Wl,-z,relro,-z,now -Wl,-z,noexecstack
 
 Static analysis results:
@@ -372,19 +376,20 @@ Or append the provider/random sections to the system /etc/ssl/openssl.cnf.
 10. FILES
 ---------
 
-  infnoise_prov.c           Provider implementation (630 lines)
-  test_infnoise_prov.c      Test harness (27 tests)
-  Makefile.provider         Build system with hardening, sanitizer, lint
-  infnoise-provider.cnf     OpenSSL configuration for loading the provider
-  openssl.supp              Valgrind suppressions for OpenSSL/libftdi
-  e_infnoise.c              Original ENGINE implementation (unchanged)
-  refactor.txt              This document
+  src/infnoise_prov.c             Provider implementation
+  test/test_infnoise_prov.c       Test harness (27 tests)
+  conf/infnoise-provider.cnf      OpenSSL configuration
+  conf/openssl.supp               Valgrind suppressions for OpenSSL/libftdi
+  doc/ARCHITECTURE.txt             This document
+  Makefile                        Build system with hardening, sanitizer, lint
+  README.md                       Build/test/usage instructions
+  LICENSE                         LGPL-3.0
 
 
 11. VERSION HISTORY
 --------------------
 
-  v1.0.0   Initial Provider API refactor from ENGINE.  Ring buffer,
+  v1.0.0   Initial Provider API implementation.  Ring buffer,
            OSSL_OP_RAND dispatch, 32 tests, ASan/UBSan/lint clean.
 
   v1.1.0   Adversarial code review.  14 findings fixed:
@@ -408,7 +413,160 @@ Or append the provider/random sections to the system /etc/ssl/openssl.cnf.
            - Test suite trimmed from 32 to 27 (removed 5 tests that
              exercised OpenSSL internals, not provider code)
            - Repository forked to Strykar/infnoise-openssl (upstream
-             tinskip/infnoise-openssl inactive since October 2020)
+             legacy ENGINE at tinskip/infnoise-openssl dormant since 2020)
            - Copyright updated
+
+  v1.3.0   Senior architect review.  Changes:
+           - Ring buffer replaced with spill buffer + direct-copy
+             pattern.  Three-phase generate: (1) drain leftover spill
+             bytes, (2) direct readData->caller for full BUFLEN batches
+             (zero-copy), (3) read one batch, give tail to caller, stash
+             remainder.  Simpler, fewer memcpy ops, no wrap-around logic.
+           - verify_zeroization now uses CRYPTO_memcmp against a zero
+             buffer (constant-time, prevents compiler optimising away
+             the check after OPENSSL_cleanse)
+           - Extracted infnoise_read_device() helper (readData + error
+             handling + zero-retry logic in one place)
+           - Added OSSL_PROV_PARAM_BUILDINFO reporting (OpenSSL 3.4+)
+           - Added INFNOISE_PROV_VERSION and INFNOISE_PROV_BUILDINFO
+             #defines for consistent version reporting
+           - Fixed error code from PROV_R_OUTPUT_BUFFER_TOO_SMALL to
+             ERR_R_PASSED_INVALID_ARGUMENT for outlen > max_request
+           - Hardening upgraded: FORTIFY_SOURCE=3, -fcf-protection
+             (CET/IBT), -fstack-clash-protection, -fno-plt (matching
+             Arch Linux system OpenSSL build flags)
+           - checksec verified: Full RELRO, Stack Canary, SHSTK & IBT,
+             NX, PIE, stripped, no RPATH/RUNPATH
+
+  v1.4.0   Upstream libinfnoise code review and interoperability fixes.
+           - Discovered readData returns 32 bytes (multiplier=1) or
+             64 bytes (multiplier=2) per call, NOT BUFLEN (512).
+             BUFLEN is the USB buffer size, not the output size.
+           - Changed multiplier from 1 to 2: doubles throughput
+             (~25 KB/s -> ~50 KB/s) at identical USB cost.  Keccak-1600
+             squeezes 512 bits with 1088 bits hidden capacity, well
+             above the 256-bit security strength claim.
+           - Added BATCH_SIZE constant (64) matching actual readData
+             output.  Spill buffer and phase 2/3 thresholds now use
+             BATCH_SIZE instead of BUFLEN.
+           - Documented libinfnoise global-state thread-safety limitation
+             (global keccakState[] and health checker — only one provider
+             context safe at a time, enforced by FTDI USB exclusion).
+           - Documented upstream exit(1) in health checker as known
+             limitation (cannot intercept from provider).
+           - Project renamed from infnoise-openssl to infnoise-provider.
+             Professional directory layout: src/, test/, conf/, doc/.
+           - Added comprehensive README.md with build, test, hardware
+             verification, and configuration instructions.
+
+  v1.4.1   Upstream analysis, patched libinfnoise, provider verified.
+           - Kernel module review (waywardgeek/master PR #111):
+             Proper Linux USB driver registering as hwrng + chardev.
+             Per-device state (no globals), fixed-point health checker,
+             USB error recovery.  Uses different VID/PID (0x1209:0x3701,
+             requires EEPROM reprogram).  Mutually exclusive with our
+             provider — kmod owns the USB device and feeds entropy
+             through /dev/hwrng -> kernel CRNG, bypassing OpenSSL's
+             seed source entirely.
+           - BLAKE2 conditioner analysis: not worth pursuing.  USB
+             throughput (~50 KB/s) is the bottleneck, not Keccak speed.
+             BLAKE2b is ~3x faster on x86 but that gain is irrelevant.
+             Keccak-1600's sponge construction (absorb/squeeze) maps
+             naturally to continuous-input/on-demand-output.  BLAKE2
+             would require building a sponge-like wrapper (re-keying,
+             state management) for no practical benefit.  The conditioner
+             lives in libinfnoise, not our provider.
+           - Upstream dependency analysis — three issues identified:
+             (1) CRITICAL: exit(1) in healthcheck.c on >20 sequential
+                 identical bits kills the host process.  Fixed in
+                 waywardgeek/master (commit 527ff2a by Matthew Brooks),
+                 NOT merged in leetronics/master, NOT in AUR package
+                 (infnoise 0.3.3-2).  Cherry-picked into local clone
+                 (local-fixes branch).  Patched libinfnoise.so rebuilt
+                 and installed to /usr/lib/libinfnoise.so.  healthcheck.o
+                 now returns false instead of calling exit().
+             (2) MEDIUM: Global state (keccakState[200], outBuf[512],
+                 health checker) prevents safe multi-instance use.
+                 Mitigated by our CRYPTO_RWLOCK serialization.  Kernel
+                 module solved this with per-device structs but userspace
+                 libinfnoise has no fix available.
+             (3) LOW: FTDI baudrate/bitmode ordering (issue #94) may
+                 cause 4x rate error on some chips.  No practical
+                 failures reported.  No impact on our provider.
+           - Provider v1.4.0 rebuilt and tested against patched
+             libinfnoise: 27/27 tests pass, 12.0s runtime.
+             Original library backed up to /usr/lib/libinfnoise.so.bak.
+
+  v1.5.0   libinfnoise patched locally (local-fixes branch) + provider
+           updated.  Two upstream patches applied:
+
+           Patch 1 — Eliminate global state (commit 8ed0c8a):
+             Moved 25 file-scope globals into struct infnoise_context:
+             - keccakState[200] and outBuf[512] (from libinfnoise.c
+               global scope) into infnoise_context directly.
+             - 23 health checker globals (from healthcheck.c static
+               scope) into new struct infnoise_health_state embedded
+               in infnoise_context.
+             All 10 inm* healthcheck functions now take
+             struct infnoise_health_state* as first parameter.
+             extractBytes and processBytes take struct infnoise_context*.
+             Public API (initInfnoise, deinitInfnoise, readData,
+             listUSBDevices) signatures unchanged — ABI breaks due to
+             struct size growth (70 -> 984 bytes) but no stable ABI.
+             Rationale: enables thread-safe multi-instance use of the
+             library.  Our provider's CRYPTO_RWLOCK is still needed
+             (serializes calls into libinfnoise) but the "single
+             instance only" limitation is now a provider choice, not
+             a library constraint.
+             Note: also required installing updated libinfnoise.h to
+             /usr/include/ — the test binary links against the system
+             header, and struct size mismatch caused stack corruption
+             (outBuf clock pattern overwrote return addresses).
+
+           Patch 2 — Error codes + signed readData (commit 35cf99e):
+             Added infnoise_error_t enum with 10 error codes
+             (INFNOISE_OK=0, negatives for fatal errors).
+             Changed readData return type: uint32_t -> int32_t.
+               > 0: bytes written (success)
+                 0: transient (timing exceeded or entropy off-target)
+               < 0: fatal error (infnoise_error_t code)
+             Added last_error field to infnoise_context for detailed
+             diagnostics alongside existing errorFlag/message.
+             Fixed existing bug: USB write failure in readData set
+             errorFlag but did not return — execution fell through to
+             the USB read, masking the original error.
+             Previously silent failure modes (timing exceeded, entropy
+             off-target) now set last_error for observability even
+             though they return 0 (transient, not fatal).
+             Updated all callers: CLI, examples, provider, test harness.
+             Rationale: our provider can now distinguish fatal errors
+             (rc < 0 -> ERROR state immediately) from transient
+             conditions (rc == 0 -> retry up to 100 times).  The
+             last_error code is logged in ERR_raise_data for
+             diagnostic visibility.
+
+           Provider changes in this version:
+             - infnoise_read_device uses int32_t rc from readData,
+               checks rc < 0 for fatal, rc == 0 for transient retry.
+               Logs last_error code in ERR_raise_data messages.
+             - Copyright and header comment updated: this is a new
+               implementation, not a refactor of the legacy ENGINE code.
+             - README and ARCHITECTURE.txt updated: legacy ENGINE repo
+               linked once as dormant reference, author references
+               corrected.
+
+           Relevance to kernel module approach: this refactor does NOT
+           help the kernel module.  The kmod has its own per-device
+           state structs, its own fixed-point health checker, and its
+           own Keccak implementation — it doesn't use libinfnoise at
+           all.  The kmod and our provider are mutually exclusive paths
+           (kmod owns the USB device, feeds /dev/hwrng; our provider
+           uses libinfnoise via userspace libftdi).  However, the
+           per-context pattern in this refactor mirrors the kmod's
+           design, confirming it as the right approach.
+
+           27/27 tests pass (normal, provider rebuilt against patched
+           libinfnoise).  Build: -Wall -Wextra -Werror clean for both
+           libinfnoise.so and the CLI binary.
 
 ================================================================================
