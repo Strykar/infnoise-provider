@@ -8,6 +8,8 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 
 **Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
+> **Alpha software** (current tag: `v0.0.1-alpha`).  The code passes its own test harness and sanitizer runs, but has not been independently audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy and [doc/TODO.txt](doc/TODO.txt) for the path to beta.
+
 ## Requirements
 
 - **OpenSSL 3.x** (tested with 3.4+)
@@ -124,6 +126,14 @@ make test-valgrind
 
 # Static analysis (cppcheck + gcc -fanalyzer)
 make lint
+
+# Long-duration soak through the provider (1 hour default, overridable)
+make test-soak-short                     # 1 h
+SOAK_SECONDS=7200 make test-soak-short   # 2 h
+
+# Full 24-hour soak — exercises dispatch, spill buffer, lifecycle churn,
+# RSS leak detection; rolling samples for offline ent / rngtest / dieharder
+make test-soak
 ```
 
 ### Test layers
@@ -161,11 +171,21 @@ sudo usermod -aG plugdev $USER
 infnoise-provider/
   src/infnoise_prov.c        Provider implementation
   test/test_infnoise_prov.c  Test harness (27 tests)
+  test/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
+                             spill-buffer phase, cycles instantiate/
+                             uninstantiate, tracks RSS for leaks, dumps
+                             rolling samples for ent/rngtest/dieharder
   conf/infnoise-provider.cnf OpenSSL configuration
   conf/openssl.supp          Valgrind suppressions
-  doc/ARCHITECTURE.txt        Design decisions and security analysis
-  Makefile                    Build system
-  LICENSE                     GPL-2.0-or-later
+  doc/ARCHITECTURE.txt       Design decisions and security analysis
+  doc/CONTRIBUTING.txt       Contribution guidelines
+  doc/TODO.txt               Deferred work toward beta
+  .github/                   Issue and pull-request templates
+  .editorconfig              Editor style rules
+  SECURITY.md                Vulnerability disclosure policy
+  CODE_OF_CONDUCT.md         Contributor Covenant 2.1
+  Makefile                   Build system
+  LICENSE                    GPL-2.0-or-later
 ```
 
 ## Security
@@ -185,6 +205,12 @@ See [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for design details and security
 - **Single instance per device.** Only one process can open an FTDI device at a time; the provider serializes its own context via `CRYPTO_RWLOCK`.  If built against a patched libinfnoise that holds state per-context (detected at compile time), the library-level constraint disappears but USB exclusion still applies.
 - **`exit(1)` on health check failure** with unpatched libinfnoise (`>20` sequential identical bits).  Upstream behavior the provider cannot intercept.  Fixed upstream in [waywardgeek/infnoise@527ff2a](https://github.com/waywardgeek/infnoise/commit/527ff2a) (Matthew Brooks).
 - **Throughput ~50 KB/s** (USB bulk transfer speed bound).  Suitable for seeding DRBGs and key generation; not suitable for bulk random data production.
+
+## Contributing
+
+Patches, bug reports, and feature proposals are welcome.  See [doc/CONTRIBUTING.txt](doc/CONTRIBUTING.txt) for style, build / test expectations, and the security invariants that any change must preserve.  All participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+For suspected vulnerabilities, please follow [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
 ## License
 
