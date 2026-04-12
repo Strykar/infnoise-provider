@@ -16,7 +16,9 @@ Documentation
   [ ] doc/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
 
 CI and testing
-  [ ] GitHub Actions: build + lint + ASan/UBSan on push (HW tests auto-skip)
+  [x] GitHub Actions: CodeQL (security-and-quality) on push + PR + weekly
+  [ ] GitHub Actions: cppcheck + gcc -fanalyzer on push/PR
+  [ ] GitHub Actions: ASan + UBSan builds on push/PR (HW tests auto-skip)
   [ ] Fuzzing harness against dispatch / parameter surface (libFuzzer)
 
 Release discipline

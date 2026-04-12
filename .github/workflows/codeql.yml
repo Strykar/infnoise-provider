@@ -1,0 +1,60 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # Weekly Monday 04:17 UTC — catch CodeQL rule updates against existing code
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (cpp)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              build-essential pkg-config \
+              libssl-dev libftdi1-dev libusb-1.0-0-dev
+
+      # libinfnoise is not packaged upstream; build and install the static
+      # library + header from source so the provider can be compiled.
+      - name: Build and install libinfnoise
+        run: |
+          git clone --depth 1 https://github.com/waywardgeek/infnoise.git /tmp/infnoise
+          cd /tmp/infnoise/software
+          make -f Makefile.linux libinfnoise.a libinfnoise.so
+          sudo install -D -m 644 libinfnoise.h  /usr/local/include/libinfnoise.h
+          sudo install -D -m 755 libinfnoise.so /usr/local/lib/libinfnoise.so
+          sudo ldconfig
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-and-quality
+
+      - name: Build provider
+        run: |
+          export CPATH=/usr/local/include
+          export LIBRARY_PATH=/usr/local/lib
+          make
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:cpp"
