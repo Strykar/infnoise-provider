@@ -1,0 +1,200 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: Contributing
+================================================================================
+
+Thanks for considering a contribution.  This document describes the
+expectations for patches, bug reports, and discussions.
+
+
+1. SCOPE
+--------
+
+This provider implements OSSL_OP_RAND for OpenSSL 3.x, backed by the
+Infinite Noise TRNG over USB.  Contributions are welcome that:
+
+  - Fix bugs in the provider implementation or test harness.
+  - Improve portability to other OpenSSL-3.x-supporting platforms.
+  - Strengthen the security invariants documented in doc/ARCHITECTURE.txt.
+  - Expand test coverage (especially adversarial / fuzzing / sanitizer).
+  - Improve documentation clarity and accuracy.
+
+Out of scope, as a deliberate choice:
+
+  - Alternative entropy sources.  This provider is specifically for the
+    Infinite Noise TRNG.  Other hardware deserves its own provider.
+  - Backporting to the legacy OpenSSL ENGINE API.  A separate project
+    (tinskip/infnoise-openssl) covers that ground; this one does not.
+  - General-purpose OpenSSL extensions unrelated to the TRNG.
+
+
+2. BEFORE YOU START
+-------------------
+
+For anything larger than a typo fix, open an issue first.  Describe the
+problem, the proposed change, and any trade-offs.  This avoids wasted
+effort on patches that turn out to conflict with design decisions
+captured in doc/ARCHITECTURE.txt.
+
+For security-sensitive reports, see SECURITY.md — do not open a public
+issue.
+
+
+3. CODE STYLE
+-------------
+
+The source is C11 with the conventions visible in src/infnoise_prov.c.
+Follow what is there rather than adding new conventions.
+
+  - Indentation:      4 spaces, no tabs.
+  - Line length:      ~100 columns soft limit; break long function calls
+                      at logical argument boundaries.
+  - Braces:           K&R — opening brace on same line for functions
+                      and control blocks.
+  - Naming:           snake_case for functions and variables; UPPER_CASE
+                      for macros and constants.
+  - Function order:   static helpers first, dispatch entries next,
+                      OSSL_DISPATCH table last.
+  - Comments:         // for single-line, explain *why*, not *what*.
+                      Non-obvious invariants MUST be commented.
+  - Error handling:   every failure path must OPENSSL_cleanse any
+                      partially-populated output before returning.  No
+                      exceptions.  This is a security invariant.
+  - Memory:           OPENSSL_zalloc for context allocation,
+                      OPENSSL_clear_free for release.  Stack buffers
+                      containing entropy get OPENSSL_cleanse before
+                      scope exit.
+
+When in doubt, match the surrounding code.
+
+
+4. BUILD AND TEST REQUIREMENTS
+------------------------------
+
+All patches must build clean under the default flags:
+
+  make clean && make
+
+with no new warnings from -Wall -Wextra.  The produced binary must pass
+checksec with Full RELRO, Stack Canary, SHSTK & IBT, NX, PIE, stripped.
+
+Every patch that touches src/ must be exercised under:
+
+  make test           # 27-test harness
+  make test-asan      # AddressSanitizer clean
+  make test-ubsan     # UndefinedBehaviorSanitizer clean
+  make lint           # cppcheck + gcc -fanalyzer, no new findings
+
+Patches that affect the generate() path, spill buffer, or lifecycle
+logic must additionally pass:
+
+  make test-soak-short     # 1-hour soak at minimum
+
+For the dispatch surface or security invariants, a 24-hour soak
+(make test-soak) is expected before merge.
+
+If a patch introduces new test cases, the new tests must be visible in
+test/test_infnoise_prov.c, numbered consistently, and assigned to the
+correct layer (Hardware / Provider API / Integration / Statistical /
+Memory safety).
+
+
+5. SECURITY INVARIANTS
+----------------------
+
+These are non-negotiable.  A patch that relaxes any of them will be
+rejected regardless of other merits.  See doc/ARCHITECTURE.txt §5 for
+rationale.
+
+  - No stale entropy in memory.
+  - No partial output on error.
+  - Bounded request size (1 MiB max).
+  - Bounded retry on transient failures (100 max).
+  - Resource cleanup on all paths.
+  - Secure seed allocation (OPENSSL_secure_malloc).
+  - Constant-time zeroization check (CRYPTO_memcmp).
+  - Strength enforcement (256-bit).
+
+If a proposed change appears to conflict with one of these, the issue
+discussion must resolve the conflict before code review begins.
+
+
+6. LIBINFNOISE COMPATIBILITY
+----------------------------
+
+The provider supports two libinfnoise variants, chosen at compile time
+via INFNOISE_KECCAK_STATE_SIZE probing.  Patches must preserve both
+code paths unless upstream libinfnoise changes invalidate the older
+path.  If in doubt, compile against both and confirm make test passes.
+
+See doc/ARCHITECTURE.txt §6 for details.
+
+
+7. COMMIT HYGIENE
+-----------------
+
+  - One logical change per commit.  A bug fix and a refactor are two
+    commits.
+  - Subject line: imperative mood, <= 72 chars.
+    Good:  "generate: cleanse output buffer on retry exhaustion"
+    Bad:   "fixed some stuff"
+  - Body: wrap at 72 chars, explain *why* (motivation, constraints,
+    consequences).  The diff shows *what*.
+  - Reference the relevant issue (Fixes #N, Refs #N).
+  - No merge commits in PRs.  Rebase onto current master.
+
+Commits that affect behavior must be testable in isolation — that is,
+reverting them in isolation must yield a buildable tree.
+
+
+8. PULL REQUEST CHECKLIST
+-------------------------
+
+Before opening a PR, confirm:
+
+  [ ] `make clean && make` succeeds with no new warnings.
+  [ ] `make test` passes 27/27 (hardware connected).
+  [ ] `make test-asan` clean.
+  [ ] `make test-ubsan` clean.
+  [ ] `make lint` introduces no new findings.
+  [ ] Soak test run completed (duration appropriate to change scope).
+  [ ] doc/ARCHITECTURE.txt updated if design changes.
+  [ ] README.md updated if user-visible behavior changes.
+  [ ] Commits squashed / rebased as appropriate.
+  [ ] Copyright header present on any new source file, bearing your
+      name and SPDX-License-Identifier: GPL-2.0-or-later.
+
+Include the output of at least `make test` in the PR description when
+hardware-dependent code changes.
+
+
+9. LICENSING
+------------
+
+By submitting a patch you agree it is licensed under GPL-2.0-or-later,
+the license of this project.  See LICENSE.
+
+No CLA is required.  Copyright remains with the contributor;
+Copyright lines may be added to headers where substantive changes
+warrant it.
+
+If your employer claims rights to your contributions, ensure you have
+authorization to contribute under this license before submitting.
+
+
+10. REPORTING BUGS
+------------------
+
+When filing a bug, include:
+
+  - OpenSSL version (openssl version -a).
+  - libinfnoise version or commit hash.
+  - Whether the patched (caller-context) libinfnoise is in use.
+  - Linux distribution and kernel version.
+  - Output of `lsusb -d 0403:6015` showing device presence.
+  - Minimal reproduction (command, config, expected vs. observed).
+  - Any sanitizer / valgrind output if available.
+
+For USB or FTDI-driver issues, confirm whether ftdi_sio is bound to
+the device — this is the most common cause of "device not found".
+
+================================================================================

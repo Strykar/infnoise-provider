@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a change or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening, please check doc/ARCHITECTURE.txt and
+        doc/CONTRIBUTING.txt — the scope of this project is
+        deliberately narrow.  Proposals that fall outside scope will
+        be closed with an explanation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is the use case or pain point this addresses?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What change do you want.  Be concrete about API, config, or behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you consider, and why does it not work?
+
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs and invariants
+      description: |
+        Does this affect any security invariant in doc/ARCHITECTURE.txt §5?
+        Does it change the dispatch surface or thread-safety model?

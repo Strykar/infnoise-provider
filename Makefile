@@ -21,7 +21,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install test test-asan test-ubsan test-valgrind lint
+.PHONY: all clean install test test-asan test-ubsan test-valgrind test-soak test-soak-short lint
 
 all: $(TARGET_LIB)
 
@@ -77,6 +77,24 @@ test-valgrind: $(TARGET_LIB) $(TEST_BIN)
 	    --suppressions=$(CONFDIR)/openssl.supp \
 	    ./$(TEST_BIN)
 
+# Long-duration soak: drives the provider directly via EVP_RAND for
+# SOAK_SECONDS (default 24 h).  Exercises dispatch, spill buffer, three-
+# phase generate, lifecycle churn, and RSS for slow leaks.  Dumps samples
+# every 5 min for offline ent/rngtest/dieharder analysis.
+test-soak: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
+	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c -lcrypto
+	OPENSSL_MODULES=$(MODULESDIR) \
+	    OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
+	    ./test_infnoise_soak
+
+# 1-hour variant.  Override duration inline: `make test-soak-short SOAK_SECONDS=7200`
+test-soak-short: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
+	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c -lcrypto
+	OPENSSL_MODULES=$(MODULESDIR) \
+	    OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
+	    SOAK_SECONDS=$${SOAK_SECONDS:-3600} \
+	    ./test_infnoise_soak
+
 # Static analysis with cppcheck and gcc -fanalyzer.
 lint: $(SRCS) $(TESTDIR)/test_infnoise_prov.c
 	@echo "--- cppcheck ---"
@@ -91,6 +109,6 @@ lint: $(SRCS) $(TESTDIR)/test_infnoise_prov.c
 	    -fanalyzer -fsyntax-only $(TESTDIR)/test_infnoise_prov.c 2>&1 || true
 
 clean:
-	-$(RM) $(TARGET_LIB) $(TEST_BIN) $(TEST_BIN)-asan $(TEST_BIN)-ubsan
+	-$(RM) $(TARGET_LIB) $(TEST_BIN) $(TEST_BIN)-asan $(TEST_BIN)-ubsan test_infnoise_soak
 	-$(RM) $(SRCDIR)/*.o $(TESTDIR)/*.o
 	-$(RM) core core.*

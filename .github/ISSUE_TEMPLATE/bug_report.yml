@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a defect in the provider
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report.  Please fill in the
+        fields below so the issue can be reproduced and triaged quickly.
+        For security-sensitive issues, see SECURITY.md instead of opening
+        a public issue.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong, in one or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Exact commands, config, and input that trigger the bug.
+      placeholder: |
+        1. OPENSSL_CONF=... openssl ...
+        2. Observed: ...
+        3. Expected: ...
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: openssl
+    attributes:
+      label: OpenSSL version
+      description: Output of `openssl version -a`
+    validations:
+      required: true
+
+  - type: input
+    id: libinfnoise
+    attributes:
+      label: libinfnoise version or commit
+      description: Upstream tag or commit hash of the installed library.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: patched
+    attributes:
+      label: libinfnoise API variant
+      options:
+        - Unpatched (file-scope state)
+        - Patched (caller-provided context)
+        - Unsure
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Distribution and kernel
+      description: e.g. Arch Linux, kernel 6.18.21-1-lts
+    validations:
+      required: true
+
+  - type: textarea
+    id: device
+    attributes:
+      label: Device presence
+      description: Output of `lsusb -d 0403:6015` and whether ftdi_sio is bound.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / sanitizer output
+      description: Any relevant stderr, ASan / UBSan / valgrind output.
+      render: shell
