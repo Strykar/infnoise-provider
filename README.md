@@ -16,13 +16,14 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 - **libinfnoise** and its dependency **libftdi1** (from the [infnoise](https://github.com/waywardgeek/infnoise) project)
 - **Infinite Noise TRNG** USB device connected
 - **GCC** with C11 support
+- **pkg-config** (used by the Makefile to locate libcrypto and libftdi1)
 - Linux (tested on Arch Linux; should work on any distro with the above)
 
 ### Arch Linux
 
 ```sh
 # libftdi1 is in the official repos
-pacman -S libftdi openssl
+pacman -S libftdi openssl pkgconf
 
 # infnoise / libinfnoise from AUR or manual build
 # See https://github.com/waywardgeek/infnoise/tree/master/software
@@ -31,7 +32,7 @@ pacman -S libftdi openssl
 ### Debian / Ubuntu
 
 ```sh
-apt install libftdi1-dev libssl-dev
+apt install libftdi1-dev libssl-dev pkg-config
 # Build libinfnoise from source — see upstream README
 ```
 
