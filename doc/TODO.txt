@@ -14,12 +14,22 @@ Packaging
 
 Documentation
   [ ] doc/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
+  [ ] README sweep once upstream #119 lands and libinfnoise tags a release:
+      pin minimum libinfnoise version in Requirements, drop the two
+      "Known limitations" bullets (library-level single-instance, exit(1)),
+      delete the INFNOISE_PATCHED compile-time bridge from src/
 
 CI and testing
   [x] GitHub Actions: CodeQL (security-and-quality) on push + PR + weekly
-  [ ] GitHub Actions: cppcheck + gcc -fanalyzer on push/PR
-  [ ] GitHub Actions: ASan + UBSan builds on push/PR (HW tests auto-skip)
-  [ ] Fuzzing harness against dispatch / parameter surface (libFuzzer)
+  [x] GitHub Actions: GCC + Clang build matrix
+  [x] GitHub Actions: ASan + UBSan sanitizer builds
+  [x] GitHub Actions: cppcheck on push/PR
+  [x] GitHub Actions: Coverity Scan (weekly cron)
+  [x] GitHub Actions: Codecov coverage upload
+  [x] GitHub Actions: OpenSSF Scorecard
+  [ ] CIFuzz / OSS-Fuzz integration — write libFuzzer harness against
+      dispatch and parameter surface, then apply for OSS-Fuzz onboarding
+      and add the CIFuzz action for per-PR short fuzz runs
 
 Release discipline
   [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha

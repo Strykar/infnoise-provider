@@ -1,0 +1,44 @@
+name: coverage
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    # Coverage is build-only since CI has no TRNG device; gcov instruments the
+    # build to catch obvious gaps in compile-time reachability.  Local runs
+    # against the device produce the real runtime coverage numbers.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libftdi1-dev gcovr
+      - name: Build and install libinfnoise
+        run: |
+          git clone --depth 1 https://github.com/waywardgeek/infnoise /tmp/infnoise
+          make -C /tmp/infnoise/software libinfnoise.so || make -C /tmp/infnoise/software
+          sudo cp /tmp/infnoise/software/libinfnoise.so* /usr/lib/ 2>/dev/null || true
+          sudo cp /tmp/infnoise/software/libinfnoise.h /usr/include/ 2>/dev/null || true
+          sudo ldconfig
+      - name: Build with coverage instrumentation
+        run: |
+          gcc -fPIC -Wall -Wextra -O0 -g --coverage \
+            $(pkg-config --cflags libcrypto libftdi1) \
+            -shared -o infnoise.so src/infnoise_prov.c \
+            $(pkg-config --libs libcrypto libftdi1) -linfnoise
+      - name: Generate coverage report
+        run: gcovr --xml-pretty -o coverage.xml || true
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false

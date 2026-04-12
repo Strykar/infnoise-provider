@@ -1,0 +1,27 @@
+name: cppcheck
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cppcheck libssl-dev libftdi1-dev
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=all --std=c11 --error-exitcode=1 \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            --suppress=checkersReport \
+            $(pkg-config --cflags-only-I libcrypto libftdi1) \
+            src/ test/
