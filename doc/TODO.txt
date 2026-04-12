@@ -13,7 +13,6 @@ Packaging
   [ ] Signed release tarballs + PGP fingerprint in README
 
 Documentation
-  [ ] Manpage: infnoise-provider.7
   [ ] doc/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
 
 CI and testing

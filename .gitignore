@@ -3,6 +3,10 @@
 test_infnoise_prov
 test_infnoise_prov-asan
 test_infnoise_prov-ubsan
+test_infnoise_soak
+
+# Generated manpage (built from the .md source via `make man`)
+doc/OSSL_PROVIDER-infnoise.7
 
 # Internal development notes — never upload
 bg.md

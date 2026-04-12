@@ -50,6 +50,14 @@ To install into the OpenSSL modules directory (typically `/usr/lib/ossl-modules/
 sudo make install
 ```
 
+Optional — build and install the manpage (requires `pandoc`):
+
+```sh
+make man
+sudo make install-man   # → /usr/share/man/man7/OSSL_PROVIDER-infnoise.7
+man OSSL_PROVIDER-infnoise
+```
+
 ## Configuration
 
 Copy or symlink `conf/infnoise-provider.cnf` and point OpenSSL at it:
@@ -180,6 +188,8 @@ infnoise-provider/
   conf/openssl.supp          Valgrind suppressions
   doc/ARCHITECTURE.txt       Design decisions and security analysis
   doc/CONTRIBUTING.txt       Contribution guidelines
+  doc/OSSL_PROVIDER-infnoise.7.md
+                             Pandoc source for the section-7 manpage
   doc/TODO.txt               Deferred work toward beta
   .github/                   Issue and pull-request templates
   .editorconfig              Editor style rules
