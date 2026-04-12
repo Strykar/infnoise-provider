@@ -552,7 +552,7 @@ static const OSSL_DISPATCH infnoise_rand_dispatch[] = {
     { OSSL_FUNC_RAND_CLEAR_SEED, (void (*)(void))infnoise_rand_clear_seed },
     { OSSL_FUNC_RAND_VERIFY_ZEROIZATION,
       (void (*)(void))infnoise_rand_verify_zeroization },
-    OSSL_DISPATCH_END
+    { 0, NULL }  // OSSL_DISPATCH_END equivalent; portable across all 3.x
 };
 
 ///////////////////////////
@@ -636,7 +636,7 @@ static const OSSL_DISPATCH infnoise_prov_dispatch[] = {
       (void (*)(void))infnoise_prov_get_params },
     { OSSL_FUNC_PROVIDER_QUERY_OPERATION,
       (void (*)(void))infnoise_prov_query },
-    OSSL_DISPATCH_END
+    { 0, NULL }  // OSSL_DISPATCH_END equivalent; portable across all 3.x
 };
 
 ///////////////////////////
