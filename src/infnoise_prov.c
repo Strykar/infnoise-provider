@@ -1,9 +1,9 @@
-// Copyright 2025-2026 Avinash H. Duduskar.
-// SPDX-License-Identifier: LGPL-3.0-or-later
+// Copyright (C) 2025-2026 Avinash H. Duduskar.
+// SPDX-License-Identifier: GPL-2.0-or-later
 // https://github.com/Strykar/infnoise-provider
 //
 // OpenSSL 3.x Provider implementing OSSL_OP_RAND using the Infinite Noise TRNG
-// to generate true random numbers: https://github.com/13-37-org/infnoise
+// to generate true random numbers: https://github.com/waywardgeek/infnoise
 //
 // Written from scratch for the Provider API (OpenSSL 3.x).
 // Reference implementations studied:

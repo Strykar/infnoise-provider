@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Avinash H. Duduskar.
+// SPDX-License-Identifier: GPL-2.0-or-later
+// https://github.com/Strykar/infnoise-provider
+//
 // Test harness for the Infinite Noise TRNG OpenSSL provider.
 //
 // Tests both the libinfnoise C library directly and the OpenSSL provider
