@@ -1,0 +1,53 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: Build Security
+================================================================================
+
+This document records the binary-hardening posture of the provider and the
+runtime security properties it preserves.  For the underlying design
+rationale and threat model, see doc/ARCHITECTURE.txt.
+
+
+1. BINARY HARDENING
+-------------------
+
+The build produces infnoise.so with the following mitigations enabled:
+
+  - Full RELRO          (GOT is mapped read-only after relocation)
+  - Stack canary        (-fstack-protector-strong)
+  - CET / IBT           (Intel Control-flow Enforcement, indirect-branch
+                         tracking)
+  - NX                  (non-executable data pages)
+  - PIE                 (position-independent executable, ASLR-friendly)
+  - FORTIFY_SOURCE=3    (compile-time + run-time checks on libc calls)
+  - Stripped            (no symbols leaked in the installed .so)
+
+These are enforced by the Makefile; any regression will surface in the
+`make check-hardening` target (see Makefile) or an equivalent
+`checksec --file=infnoise.so` run.
+
+
+2. RUNTIME SECURITY PROPERTIES
+------------------------------
+
+  - All entropy buffers are cleansed after use via OPENSSL_cleanse.
+  - On error paths, any partial output already written to the caller's
+    buffer is cleansed — no stale entropy is ever returned.
+  - Dispatch is thread-safe via OpenSSL's CRYPTO_RWLOCK; the provider
+    serializes its own context against concurrent callers.
+  - DoS prevention: requests are capped at 1 MiB, and the zero-read
+    retry loop is bounded at 100 iterations before surfacing an error.
+  - Seed buffers live in mlock'd pages allocated with
+    OPENSSL_secure_malloc, keeping them out of swap and core dumps.
+  - Zeroization is verified in constant time via CRYPTO_memcmp so the
+    check itself cannot leak through a timing side channel.
+
+
+3. FURTHER READING
+------------------
+
+  - doc/ARCHITECTURE.txt  — design decisions and security invariants
+  - SECURITY.md           — vulnerability disclosure policy
+
+
+--------------------------------------------------------------------------------
+Copyright (C) 2025-2026 Avinash H. Duduskar.

@@ -118,43 +118,7 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 ## Testing
 
-The test harness runs 27 tests across 5 layers.  The TRNG must be connected for hardware tests.
-
-```sh
-# Standard test run
-make test
-
-# AddressSanitizer (buffer overflows, use-after-free, leaks)
-make test-asan
-
-# UndefinedBehaviorSanitizer (signed overflow, null deref, etc.)
-make test-ubsan
-
-# Valgrind (requires glibc debug symbols on Arch)
-make test-valgrind
-
-# Static analysis (cppcheck + gcc -fanalyzer)
-make lint
-
-# Long-duration soak through the provider (1 hour default, overridable)
-make test-soak-short                     # 1 h
-SOAK_SECONDS=7200 make test-soak-short   # 2 h
-
-# Full 24-hour soak — exercises dispatch, spill buffer, lifecycle churn,
-# RSS leak detection; rolling samples for offline ent / rngtest / dieharder
-make test-soak
-```
-
-### Test layers
-
-| Layer | Tests | What it covers |
-|-------|-------|----------------|
-| 1. Hardware | 4 | USB detection, init/deinit, raw reads |
-| 2a. Provider API (no HW) | 6 | Load, params, fetch, gettable, state, reload cycles |
-| 2b. Provider API (HW) | 6 | Lifecycle, ctx params, locking, strength, sizes, reseed |
-| 3. Integration | 3 | RAND_bytes, RSA-2048 keygen, EC P-256 keygen |
-| 4. Statistical | 4 | NIST monobit, chi-squared, runs, two-sample independence |
-| 5. Memory safety | 4 | Context churn, instantiate churn, boundary sizes, zero-length |
+The test harness runs 27 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [doc/Testing.txt](doc/Testing.txt) for invocations and the per-layer breakdown.
 
 ## USB permissions
 
@@ -187,9 +151,11 @@ infnoise-provider/
   conf/infnoise-provider.cnf OpenSSL configuration
   conf/openssl.supp          Valgrind suppressions
   doc/ARCHITECTURE.txt       Design decisions and security analysis
+  doc/Build_Security.txt     Binary hardening + runtime security properties
   doc/CONTRIBUTING.txt       Contribution guidelines
   doc/OSSL_PROVIDER-infnoise.7.md
                              Pandoc source for the section-7 manpage
+  doc/Testing.txt            Test harness layers and invocations
   doc/TODO.txt               Deferred work toward beta
   .github/                   Issue and pull-request templates
   .editorconfig              Editor style rules
@@ -201,15 +167,7 @@ infnoise-provider/
 
 ## Security
 
-- Full binary hardening: RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped
-- All entropy buffers cleansed after use (`OPENSSL_cleanse`)
-- Partial output cleansed on error (no stale data returned to caller)
-- Thread-safe via OpenSSL's CRYPTO_RWLOCK dispatch
-- DoS prevention: 1 MiB max request, 100 zero-read retry limit
-- Seed buffers in `mlock`'d pages (`OPENSSL_secure_malloc`)
-- Constant-time zeroization verification (`CRYPTO_memcmp`)
-
-See [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for design details and security invariants.
+Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped), entropy-buffer cleansing on all paths, `mlock`'d seed buffers, bounded request sizes, and thread-safe dispatch.  See [doc/Build_Security.txt](doc/Build_Security.txt) for the full list and [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for the design rationale.
 
 ## Known limitations
 
