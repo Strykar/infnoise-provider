@@ -27,9 +27,10 @@ jobs:
       - name: Build and install libinfnoise from upstream
         run: |
           git clone --depth 1 https://github.com/waywardgeek/infnoise /tmp/infnoise
-          make -C /tmp/infnoise/software libinfnoise.so || make -C /tmp/infnoise/software
-          sudo cp /tmp/infnoise/software/libinfnoise.so* /usr/lib/ 2>/dev/null || true
-          sudo cp /tmp/infnoise/software/libinfnoise.h /usr/include/ 2>/dev/null || true
+          make -C /tmp/infnoise/software -f Makefile.linux \
+            GIT_VERSION=ci GIT_COMMIT=ci GIT_DATE=ci libinfnoise.so
+          sudo make -C /tmp/infnoise/software -f Makefile.linux \
+            GIT_VERSION=ci GIT_COMMIT=ci GIT_DATE=ci PREFIX=/usr install-lib
           sudo ldconfig
       - name: Build provider
         run: make
