@@ -6,7 +6,7 @@ This provider registers an `OSSL_OP_RAND` seed source backed by the Infinite Noi
 
 Written from scratch for the OpenSSL 3.x Provider API.  A legacy ENGINE implementation by Tim Skipper exists at [tinskip/infnoise-openssl](https://github.com/tinskip/infnoise-openssl) (dormant since 2020); this provider shares no code with it.
 
-**Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)).
+**Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
 ## Requirements
 
