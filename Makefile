@@ -91,4 +91,6 @@ lint: $(SRCS) $(TESTDIR)/test_infnoise_prov.c
 	    -fanalyzer -fsyntax-only $(TESTDIR)/test_infnoise_prov.c 2>&1 || true
 
 clean:
-	-$(RM) $(TARGET_LIB) $(TEST_BIN) $(TEST_BIN)-asan $(TEST_BIN)-ubsan $(OBJS)
+	-$(RM) $(TARGET_LIB) $(TEST_BIN) $(TEST_BIN)-asan $(TEST_BIN)-ubsan
+	-$(RM) $(SRCDIR)/*.o $(TESTDIR)/*.o
+	-$(RM) core core.*

@@ -3,3 +3,6 @@
 test_infnoise_prov
 test_infnoise_prov-asan
 test_infnoise_prov-ubsan
+
+# Internal development notes — never upload
+bg.md

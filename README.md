@@ -1,15 +1,17 @@
 # infnoise-provider
 
-OpenSSL 3.x provider for the [Infinite Noise TRNG](https://github.com/leetronics/infnoise) hardware random number generator.
+OpenSSL 3.x provider for the [Infinite Noise TRNG](https://github.com/waywardgeek/infnoise) hardware random number generator.
 
 This provider registers an `OSSL_OP_RAND` seed source backed by the Infinite Noise TRNG, a USB true random number generator based on modular entropy multiplication.  When configured as the DRBG seed source, all OpenSSL cryptographic operations (key generation, signatures, TLS handshakes) are seeded with hardware entropy.
 
-Written from scratch for the OpenSSL 3.x Provider API.  A legacy ENGINE implementation exists at [tinskip/infnoise-openssl](https://github.com/tinskip/infnoise-openssl) (appears dormant since 2020).
+Written from scratch for the OpenSSL 3.x Provider API.  A legacy ENGINE implementation by Tim Skipper exists at [tinskip/infnoise-openssl](https://github.com/tinskip/infnoise-openssl) (dormant since 2020); this provider shares no code with it.
+
+**Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)).
 
 ## Requirements
 
 - **OpenSSL 3.x** (tested with 3.4+)
-- **libinfnoise** and its dependency **libftdi1** (from the [infnoise](https://github.com/leetronics/infnoise) project)
+- **libinfnoise** and its dependency **libftdi1** (from the [infnoise](https://github.com/waywardgeek/infnoise) project)
 - **Infinite Noise TRNG** USB device connected
 - **GCC** with C11 support
 - Linux (tested on Arch Linux; should work on any distro with the above)
@@ -21,7 +23,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy ENGINE implemen
 pacman -S libftdi openssl
 
 # infnoise / libinfnoise from AUR or manual build
-# See https://github.com/leetronics/infnoise/tree/master/software
+# See https://github.com/waywardgeek/infnoise/tree/master/software
 ```
 
 ### Debian / Ubuntu
@@ -163,7 +165,7 @@ infnoise-provider/
   conf/openssl.supp          Valgrind suppressions
   doc/ARCHITECTURE.txt        Design decisions and security analysis
   Makefile                    Build system
-  LICENSE                     LGPL-3.0
+  LICENSE                     GPL-2.0-or-later
 ```
 
 ## Security
@@ -176,16 +178,18 @@ infnoise-provider/
 - Seed buffers in `mlock`'d pages (`OPENSSL_secure_malloc`)
 - Constant-time zeroization verification (`CRYPTO_memcmp`)
 
-See [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for the full adversarial review and design rationale.
+See [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for design details and security invariants.
 
 ## Known limitations
 
-- **Single instance only.** libinfnoise uses global state for its Keccak sponge and health checker.  Only one provider context can be active at a time.  In practice, the FTDI USB exclusion enforces this (only one process can open the device).
-- **libinfnoise calls `exit(1)` on health check failure** (>20 sequential identical bits).  This is an upstream issue that terminates the host process.  There is no way to intercept this from the provider.
-- **Throughput is ~50 KB/s** (limited by USB bulk transfer speed).  Sufficient for seeding DRBGs and key generation; not suitable for bulk random data production.
+- **Single instance per device.** Only one process can open an FTDI device at a time; the provider serializes its own context via `CRYPTO_RWLOCK`.  If built against a patched libinfnoise that holds state per-context (detected at compile time), the library-level constraint disappears but USB exclusion still applies.
+- **`exit(1)` on health check failure** with unpatched libinfnoise (`>20` sequential identical bits).  Upstream behavior the provider cannot intercept.  Fixed upstream in [waywardgeek/infnoise@527ff2a](https://github.com/waywardgeek/infnoise/commit/527ff2a) (Matthew Brooks).
+- **Throughput ~50 KB/s** (USB bulk transfer speed bound).  Suitable for seeding DRBGs and key generation; not suitable for bulk random data production.
 
 ## License
 
-LGPL-3.0-or-later.  See [LICENSE](LICENSE) for details.
+GPL-2.0-or-later.  See [LICENSE](LICENSE) for details.
 
-By Avinash H. Duduskar.
+This provider links OpenSSL (Apache 2.0).  Pure GPL-2.0 is incompatible with Apache 2.0; the "or later" clause elevates the effective license to GPL-3.0 at distribution time, which is explicitly Apache-2.0-compatible.
+
+Copyright (C) 2025-2026 Avinash H. Duduskar.
