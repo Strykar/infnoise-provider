@@ -2,67 +2,26 @@
         Infinite Noise TRNG — OpenSSL 3.x Provider: TODO
 ================================================================================
 
-Deferred work — not blocking alpha, worth doing before declaring beta.
+Deferred work.  Not blocking alpha; worth doing before beta.
 
+Packaging
+  [ ] AUR package (infnoise-provider-git and/or versioned)
+  [ ] examples/ — nginx OPENSSL_CONF snippet
+  [ ] examples/ — Python cryptography via OpenSSL
+  [ ] examples/ — systemd drop-in scoping provider to a single service
+  [ ] Signed git tags (git tag -s)
+  [ ] Signed release tarballs + PGP fingerprint in README
 
-1. PACKAGING
-------------
+Documentation
+  [ ] Manpage: infnoise-provider.7
+  [ ] doc/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
 
-  - AUR package (infnoise-provider-git or versioned).  Natural audience
-    is Arch users with the TRNG already plugged in; AUR entry makes it
-    discoverable and exercises `make install` against a clean system.
+CI and testing
+  [ ] GitHub Actions: build + lint + ASan/UBSan on push (HW tests auto-skip)
+  [ ] Fuzzing harness against dispatch / parameter surface (libFuzzer)
 
-  - Example integrations directory (examples/).  One small, commented
-    example each for:
-      - nginx via OPENSSL_CONF drop-in
-      - Python `cryptography` package going through OpenSSL
-      - systemd drop-in routing a single service through the provider
-
-  - Signed release tarballs and signed git tags.
-    `git tag -s`, publish PGP key fingerprint in README.  Expected for
-    crypto projects.
-
-
-2. DOCUMENTATION
-----------------
-
-  - Manpage (infnoise-provider.7).  Distro packagers appreciate this.
-    Document the .cnf layout, environment variables, and the USB
-    permission requirements.
-
-  - FAQ (doc/FAQ.txt).  Pre-empt the common confusions:
-      - Why a Provider instead of an ENGINE?
-      - Why not /dev/hwrng?
-      - Will this speed up TLS?  (No — see daemon vs. provider trade-off.)
-      - Can the daemon and the provider coexist?  (No — single-holder
-        USB constraint.)
-
-
-3. CI AND TESTING
------------------
-
-  - GitHub Actions workflow for build + lint + sanitizer coverage.
-    Hardware-gated tests auto-skip on CI (the harness already handles
-    this); the non-hardware surface is still worth exercising on
-    every push.
-
-  - Fuzzing harness (test/fuzz_infnoise.c) using libFuzzer against the
-    dispatch / parameter surface.  Small surface but good signal
-    against parameter-parsing edge cases.
-
-
-4. RELEASE DISCIPLINE
----------------------
-
-  - CHANGELOG.md in Keep-a-Changelog format, starting when the project
-    leaves alpha.  Tag versions accordingly.
-
-  - First public Release (as distinct from an alpha tag) when:
-      - A full 24-hour soak has been completed on current master.
-      - Upstream waywardgeek/infnoise response on the
-        per-context-state API (issue #119) has shaped the final API
-        choice.
-      - At least one external reviewer has read doc/ARCHITECTURE.txt
-        and not found holes.
+Release discipline
+  [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha
+  [ ] First signed Release after: 24 h soak green, upstream #119 resolved, external review
 
 ================================================================================
