@@ -96,10 +96,10 @@ test-ubsan: $(TESTDIR)/test_infnoise_prov.c $(SRCS)
 	    OPENSSL_MODULES=$(MODULESDIR) ./$(TEST_BIN)-ubsan
 
 # Valgrind: detects uninitialised reads, invalid accesses, leaks.
-# Arch Linux note: valgrind requires glibc debug symbols.  Either:
-#   1. Enable debuginfod: export DEBUGINFOD_URLS="https://debuginfod.archlinux.org"
+# Linux note: valgrind requires glibc debug symbols.  Either:
+#   1. On Arch Linux, enable debuginfod: export DEBUGINFOD_URLS="https://debuginfod.archlinux.org"
 #      and install the debuginfod package, or
-#   2. Install a glibc-debug package if available.
+#   2. Other distros, install the glibc-debug package.
 test-valgrind: $(TARGET_LIB) $(TEST_BIN)
 	@command -v valgrind >/dev/null 2>&1 || { echo "ERROR: valgrind not found"; exit 1; }
 	OPENSSL_MODULES=$(MODULESDIR) valgrind \
@@ -109,7 +109,7 @@ test-valgrind: $(TARGET_LIB) $(TEST_BIN)
 	    --suppressions=$(CONFDIR)/openssl.supp \
 	    ./$(TEST_BIN)
 
-# Long-duration soak: drives the provider directly via EVP_RAND for
+# Long-duration soak: drives our provider directly via EVP_RAND for
 # SOAK_SECONDS (default 24 h).  Exercises dispatch, spill buffer, three-
 # phase generate, lifecycle churn, and RSS for slow leaks.  Dumps samples
 # every 5 min for offline ent/rngtest/dieharder analysis.
