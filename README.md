@@ -1,9 +1,9 @@
 # infnoise-provider
 
 [![build](https://github.com/Strykar/infnoise-provider/actions/workflows/build.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/build.yml)
-[![sanitizers](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml)
-[![CodeQL](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml)
 [![cppcheck](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml)
+[![CodeQL](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml)
+[![sanitizers](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml)
 [![Coverity Scan](https://scan.coverity.com/projects/Strykar-infnoise-provider/badge.svg)](https://scan.coverity.com/projects/Strykar-infnoise-provider)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12494/badge)](https://www.bestpractices.dev/projects/12494)
 [![Language: C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
