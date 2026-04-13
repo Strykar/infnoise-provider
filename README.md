@@ -6,7 +6,6 @@
 [![cppcheck](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml)
 [![Coverity Scan](https://scan.coverity.com/projects/Strykar-infnoise-provider/badge.svg)](https://scan.coverity.com/projects/Strykar-infnoise-provider)
 [![codecov](https://codecov.io/gh/Strykar/infnoise-provider/branch/master/graph/badge.svg)](https://codecov.io/gh/Strykar/infnoise-provider)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Strykar/infnoise-provider/badge)](https://scorecard.dev/viewer/?uri=github.com/Strykar/infnoise-provider)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12494/badge)](https://www.bestpractices.dev/projects/12494)
 [![Language: C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
