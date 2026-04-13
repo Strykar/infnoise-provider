@@ -14,7 +14,7 @@
   <sub>Photo: <a href="https://leetronics.de/en/shop/infinite-noise-trng/">leetronics.de</a></sub>
 </p>
 
-OpenSSL 3.x [provider](https://docs.openssl.org/3.4/man7/provider) for the [Infinite Noise TRNG](https://github.com/waywardgeek/infnoise) hardware random number generator.
+OpenSSL 3.x [provider](https://docs.openssl.org/3.4/man7/provider) for the [Infinite Noise TRNG](https://github.com/waywardgeek/infnoise) USB hardware random number generator.
 
 This provider registers an `OSSL_OP_RAND` seed source backed by the Infinite Noise TRNG, a USB true random number generator based on modular entropy multiplication.  When configured as the DRBG seed source, all OpenSSL cryptographic operations (key generation, signatures, TLS handshakes) are seeded with hardware entropy.
 
