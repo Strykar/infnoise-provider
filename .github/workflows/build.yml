@@ -36,5 +36,5 @@ jobs:
         run: make
       - name: Verify hardening
         run: |
-          sudo apt-get install -y --no-install-recommends hardening-check
-          hardening-check -q infnoise.so || true
+          sudo apt-get install -y --no-install-recommends checksec
+          checksec --file=infnoise.so || true
