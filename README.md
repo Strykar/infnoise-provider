@@ -10,7 +10,7 @@
 [![Language: C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 
-OpenSSL 3.x provider for the [Infinite Noise TRNG](https://github.com/waywardgeek/infnoise) hardware random number generator.
+OpenSSL 3.x [provider](https://docs.openssl.org/3.4/man7/provider) for the [Infinite Noise TRNG](https://github.com/waywardgeek/infnoise) hardware random number generator.
 
 This provider registers an `OSSL_OP_RAND` seed source backed by the Infinite Noise TRNG, a USB true random number generator based on modular entropy multiplication.  When configured as the DRBG seed source, all OpenSSL cryptographic operations (key generation, signatures, TLS handshakes) are seeded with hardware entropy.
 
