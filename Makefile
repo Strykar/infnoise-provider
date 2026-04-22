@@ -40,7 +40,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install install-man man test test-asan test-ubsan test-valgrind test-soak test-soak-short lint
+.PHONY: all clean install install-man man test test-asan test-ubsan test-valgrind test-soak test-soak-short plot-soak lint
 
 all: $(TARGET_LIB)
 
@@ -109,23 +109,75 @@ test-valgrind: $(TARGET_LIB) $(TEST_BIN)
 	    --suppressions=$(CONFDIR)/openssl.supp \
 	    ./$(TEST_BIN)
 
+# Capture a raw (un-whitened) sample from the TRNG for visual comparison.
+# The scatter plot of raw output shows the INM's preferred bit states;
+# whitened output should fill the plane uniformly.
+RAW_SAMPLE_BYTES ?= 65536
+SOAK_PLOT = $(TESTDIR)/plot_samples.py
+
 # Long-duration soak: drives our provider directly via EVP_RAND for
 # SOAK_SECONDS (default 24 h).  Exercises dispatch, spill buffer, three-
 # phase generate, lifecycle churn, and RSS for slow leaks.  Dumps samples
 # every 5 min for offline ent/rngtest/dieharder analysis.
+# Captures raw TRNG output and generates scatter/heatmap plots at the end.
 test-soak: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
 	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c $(PKG_LIBS)
-	OPENSSL_MODULES=$(MODULESDIR) \
-	    OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
-	    ./test_infnoise_soak
+	@SOAK_DIR=$${SOAK_SAMPLE_DIR:-/tmp/infnoise-soak-$$$$}; \
+	 mkdir -p "$$SOAK_DIR"; \
+	 if command -v infnoise >/dev/null 2>&1; then \
+	     echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
+	     infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin"; \
+	     echo "raw sample: $$SOAK_DIR/raw.bin"; \
+	 else \
+	     echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 fi; \
+	 OPENSSL_MODULES=$(MODULESDIR) \
+	     OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
+	     SOAK_SAMPLE_DIR="$$SOAK_DIR" \
+	     ./test_infnoise_soak; RC=$$?; \
+	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"; \
+	 exit $$RC
 
 # 1-hour variant.  Override duration inline: `make test-soak-short SOAK_SECONDS=7200`
 test-soak-short: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
 	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c $(PKG_LIBS)
-	OPENSSL_MODULES=$(MODULESDIR) \
-	    OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
-	    SOAK_SECONDS=$${SOAK_SECONDS:-3600} \
-	    ./test_infnoise_soak
+	@SOAK_DIR=$${SOAK_SAMPLE_DIR:-/tmp/infnoise-soak-$$$$}; \
+	 mkdir -p "$$SOAK_DIR"; \
+	 if command -v infnoise >/dev/null 2>&1; then \
+	     echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
+	     infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin"; \
+	     echo "raw sample: $$SOAK_DIR/raw.bin"; \
+	 else \
+	     echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 fi; \
+	 OPENSSL_MODULES=$(MODULESDIR) \
+	     OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
+	     SOAK_SAMPLE_DIR="$$SOAK_DIR" \
+	     SOAK_SECONDS=$${SOAK_SECONDS:-3600} \
+	     ./test_infnoise_soak; RC=$$?; \
+	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"; \
+	 exit $$RC
+
+# Generate scatter and heatmap plots from soak sample files.
+# Uses SOAK_SAMPLE_DIR if set, otherwise finds the most recent soak directory.
+plot-soak:
+	@SOAK_DIR="$${SOAK_SAMPLE_DIR}"; \
+	 if [ -z "$$SOAK_DIR" ]; then \
+	     SOAK_DIR=$$(ls -td /tmp/infnoise-soak-* 2>/dev/null | head -1); \
+	 fi; \
+	 if [ -z "$$SOAK_DIR" ]; then echo "no soak directory found"; exit 1; fi; \
+	 echo "plotting from $$SOAK_DIR"; \
+	 RAW="$$SOAK_DIR/raw.bin"; \
+	 WHITE=$$(ls -t "$$SOAK_DIR"/sample-*.bin 2>/dev/null | head -1); \
+	 if [ -f "$$RAW" ] && [ -n "$$WHITE" ]; then \
+	     python3 $(SOAK_PLOT) "$$RAW" "$$WHITE" --no-show; \
+	 elif [ -f "$$RAW" ]; then \
+	     python3 $(SOAK_PLOT) "$$RAW" --no-show; \
+	 elif [ -n "$$WHITE" ]; then \
+	     python3 $(SOAK_PLOT) "$$WHITE" --no-show; \
+	 else \
+	     echo "no sample files found in $$SOAK_DIR"; exit 1; \
+	 fi
 
 # Static analysis with cppcheck and gcc -fanalyzer.
 lint: $(SRCS) $(TESTDIR)/test_infnoise_prov.c
@@ -142,6 +194,7 @@ lint: $(SRCS) $(TESTDIR)/test_infnoise_prov.c
 
 clean:
 	-$(RM) $(TARGET_LIB) $(TEST_BIN) $(TEST_BIN)-asan $(TEST_BIN)-ubsan test_infnoise_soak
+	-$(RM) *-plots.png *-scatter.png *-heatmap.png
 	-$(RM) $(SRCDIR)/*.o $(TESTDIR)/*.o
 	-$(RM) core core.*
 	-$(RM) $(MAN7_OUT)
