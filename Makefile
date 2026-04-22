@@ -124,31 +124,39 @@ test-soak: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
 	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c $(PKG_LIBS)
 	@SOAK_DIR=$${SOAK_SAMPLE_DIR:-/tmp/infnoise-soak-$$$$}; \
 	 mkdir -p "$$SOAK_DIR"; \
-	 echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
-	 (infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin" && \
-	  echo "raw sample: $$SOAK_DIR/raw.bin") || \
-	  echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 if command -v infnoise >/dev/null 2>&1; then \
+	     echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
+	     infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin"; \
+	     echo "raw sample: $$SOAK_DIR/raw.bin"; \
+	 else \
+	     echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 fi; \
 	 OPENSSL_MODULES=$(MODULESDIR) \
 	     OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
 	     SOAK_SAMPLE_DIR="$$SOAK_DIR" \
-	     ./test_infnoise_soak; \
-	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"
+	     ./test_infnoise_soak; RC=$$?; \
+	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"; \
+	 exit $$RC
 
 # 1-hour variant.  Override duration inline: `make test-soak-short SOAK_SECONDS=7200`
 test-soak-short: $(TARGET_LIB) $(TESTDIR)/test_infnoise_soak.c
 	$(CC) $(CFLAGS) -o test_infnoise_soak $(TESTDIR)/test_infnoise_soak.c $(PKG_LIBS)
 	@SOAK_DIR=$${SOAK_SAMPLE_DIR:-/tmp/infnoise-soak-$$$$}; \
 	 mkdir -p "$$SOAK_DIR"; \
-	 echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
-	 (infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin" && \
-	  echo "raw sample: $$SOAK_DIR/raw.bin") || \
-	  echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 if command -v infnoise >/dev/null 2>&1; then \
+	     echo "capturing $(RAW_SAMPLE_BYTES) bytes of raw TRNG output..."; \
+	     infnoise --raw 2>/dev/null | head -c $(RAW_SAMPLE_BYTES) > "$$SOAK_DIR/raw.bin"; \
+	     echo "raw sample: $$SOAK_DIR/raw.bin"; \
+	 else \
+	     echo "warn: infnoise CLI not found, skipping raw capture"; \
+	 fi; \
 	 OPENSSL_MODULES=$(MODULESDIR) \
 	     OPENSSL_CONF=$(CONFDIR)/infnoise-provider.cnf \
 	     SOAK_SAMPLE_DIR="$$SOAK_DIR" \
 	     SOAK_SECONDS=$${SOAK_SECONDS:-3600} \
-	     ./test_infnoise_soak; \
-	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"
+	     ./test_infnoise_soak; RC=$$?; \
+	 $(MAKE) --no-print-directory plot-soak SOAK_SAMPLE_DIR="$$SOAK_DIR"; \
+	 exit $$RC
 
 # Generate scatter and heatmap plots from soak sample files.
 # Uses SOAK_SAMPLE_DIR if set, otherwise finds the most recent soak directory.
