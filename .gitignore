@@ -15,6 +15,10 @@ oom-*
 slow-*
 leak-*
 
+# LLVM coverage runtime output
+*.profraw
+*.profdata
+
 # TSan / allocator-failure test binaries
 test_infnoise_tsan
 test_infnoise_alloc
