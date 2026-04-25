@@ -83,16 +83,23 @@ jobs:
             -print_final_stats=1 \
             $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
 
+      # Replay every committed regression input across the relevant
+      # harnesses BEFORE the time-bounded fuzz run, so a regression
+      # fails fast rather than waiting for the fuzzer to rediscover it.
+      - name: Replay regression inputs
+        run: |
+          ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+          ./fuzz/fuzz_spill_oracle fuzz/regressions/phase3_short_read.bin
+          ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+          ./fuzz/fuzz_dispatch fuzz/regressions/zero_outlen_null_ptr.bin
+
       - name: Run fuzz_spill_oracle
         id: fuzz_spill_oracle
         continue-on-error: true
         run: |
           corpus=fuzz/corpus/fuzz_spill_oracle
-          # Replay the bundled regression input first so any future change
-          # that re-introduces the phase-3 short-read disclosure fails fast.
-          ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
-          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_spill_oracle fuzz/regressions/phase3_short_read.bin
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
           ./fuzz/fuzz_spill_oracle \

@@ -324,6 +324,12 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
         return 0;
     }
 
+    // Zero-length request is trivially successful and must not touch out;
+    // callers may legitimately pass out == NULL with outlen == 0, and any
+    // pointer arithmetic on a null pointer (even +0) is undefined behaviour.
+    if (outlen == 0)
+        return 1;
+
     unsigned char *w_ptr = out;
     size_t remaining = outlen;
 
