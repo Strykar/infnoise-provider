@@ -8,5 +8,12 @@ test_infnoise_soak
 # Generated manpage (built from the .md source via `make man`)
 doc/OSSL_PROVIDER-infnoise.7
 
+# libFuzzer reproducers (written to CWD when -artifact_prefix is unset)
+crash-*
+timeout-*
+oom-*
+slow-*
+leak-*
+
 # Internal development notes — never upload
 bg.md

@@ -33,6 +33,11 @@ CI and testing
 
 Release discipline
   [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha
-  [ ] First signed Release after: 24 h soak green, upstream #119 resolved, external review
+  [ ] First signed Release, gated on:
+      [x] 24 h endurance run green (2026-04-24: 14698 generate calls,
+          4.21 GiB, 49.9 KiB/s, 0 errors, 95 churn cycles, RSS +1.2 MiB
+          peak, ended -1.0 MiB below start; see issue #8 and README)
+      [ ] upstream waywardgeek/infnoise#119 resolved
+      [ ] external review
 
 ================================================================================

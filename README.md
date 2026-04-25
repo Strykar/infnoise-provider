@@ -134,6 +134,18 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 The test harness runs 27 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [doc/Testing.txt](doc/Testing.txt) for invocations and the per-layer breakdown.
 
+### 24-hour endurance run
+
+`make test-soak` drove `EVP_RAND` continuously for 24 hours: 14 698 generate calls, 4.21 GiB produced (49.9 KiB/s sustained), 0 errors, 95 instantiate / uninstantiate cycles.  RSS peaked at +1.2 MiB and ended 1.0 MiB below start — bounded growth, no leaks.
+
+The two plots below visualise the same entropy stream from two angles.  The pair-wise scatter is the most striking: raw TRNG output exposes the Modular Entropy Multiplier's preferred bit states as a regular grid; after Keccak whitening the structure is gone and the byte plane fills uniformly.
+
+![24-hour endurance run: pair-wise byte distribution](doc/endurance-24h-scatter.png)
+
+The byte-value heatmap shows each byte as a coloured pixel (0 black → 255 white).  Raw output has warmer clumps where the multiplier favours mid-range values; whitening flattens the texture into uniform fine-grain noise.
+
+![24-hour endurance run: byte-value heatmap](doc/endurance-24h-heatmap.png)
+
 ## USB permissions
 
 By default, the FTDI device requires root access.  To use without root, create a udev rule:
