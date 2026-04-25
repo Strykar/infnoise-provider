@@ -33,6 +33,11 @@
 
 static uint8_t g_entropy[ENTROPY_SIZE];
 
+// Sentinel pointer used as a worker thread's failure return value.
+// Avoids casting integer literals to pointer (intToPointerCast).
+static char         g_worker_failed_marker;
+#define WORKER_FAILED ((void *)&g_worker_failed_marker)
+
 // ---------------------------------------------------------------------------
 // Scenario 1: shared context, locked generate.
 // ---------------------------------------------------------------------------
@@ -45,13 +50,13 @@ static void *shared_worker(void *arg)
     for (int i = 0; i < ITERS_SHARED; i++) {
         if (!infnoise_rand_lock(ctx)) {
             fprintf(stderr, "shared_worker: lock failed\n");
-            return (void *)1;
+            return WORKER_FAILED;
         }
         if (!infnoise_rand_generate(ctx, buf, 32, INFNOISE_STRENGTH,
                                     0, NULL, 0)) {
             infnoise_rand_unlock(ctx);
             fprintf(stderr, "shared_worker: generate failed at i=%d\n", i);
-            return (void *)1;
+            return WORKER_FAILED;
         }
         infnoise_rand_unlock(ctx);
     }
@@ -108,11 +113,11 @@ static void *isolated_worker(void *arg)
 {
     (void)arg;
     void *ctx = infnoise_rand_newctx(NULL, NULL, NULL);
-    if (!ctx) return (void *)1;
+    if (!ctx) return WORKER_FAILED;
     if (!infnoise_rand_instantiate(ctx, INFNOISE_STRENGTH,
                                    0, NULL, 0, NULL)) {
         infnoise_rand_freectx(ctx);
-        return (void *)1;
+        return WORKER_FAILED;
     }
 
     uint8_t buf[64];
@@ -121,7 +126,7 @@ static void *isolated_worker(void *arg)
                                     0, NULL, 0)) {
             infnoise_rand_uninstantiate(ctx);
             infnoise_rand_freectx(ctx);
-            return (void *)1;
+            return WORKER_FAILED;
         }
     }
     infnoise_rand_uninstantiate(ctx);

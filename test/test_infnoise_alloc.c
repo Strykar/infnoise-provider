@@ -137,7 +137,7 @@ static int test_enable_locking(void)
     if (rc == 0) {
         // Failure path exercised.  ctx->lock must remain NULL so caller
         // can retry.
-        PROV_INFNOISE *p = (PROV_INFNOISE *)ctx;
+        const PROV_INFNOISE *p = (const PROV_INFNOISE *)ctx;
         if (p->lock != NULL) {
             fprintf(stderr, "FAIL test_enable_locking: lock != NULL on failure path\n");
             infnoise_rand_freectx(ctx);

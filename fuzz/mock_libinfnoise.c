@@ -79,14 +79,10 @@ bool initInfnoise(struct infnoise_context *ctx, char *serial,
 {
     (void)serial; (void)keccak; (void)debug;
     if (g_fail_init) {
-        ctx->message    = "mock: injected init failure";
-        ctx->errorFlag  = true;
-        ctx->last_error = INFNOISE_ERR_INIT;
+        ctx->message = "mock: injected init failure";
         return false;
     }
-    ctx->message    = NULL;
-    ctx->errorFlag  = false;
-    ctx->last_error = INFNOISE_OK;
+    ctx->message = NULL;
     return true;
 }
 
@@ -104,9 +100,7 @@ int32_t readData(struct infnoise_context *ctx, uint8_t *result,
 
     g_call_count++;
     if (g_fatal_after != 0 && g_call_count == g_fatal_after) {
-        ctx->message    = "mock: injected fatal error";
-        ctx->errorFlag  = true;
-        ctx->last_error = INFNOISE_ERR_USB_READ;
+        ctx->message = "mock: injected fatal error";
         pthread_mutex_unlock(&g_mock_lock);
         return INFNOISE_ERR_USB_READ;  // negative -> provider hits fatal path
     }
