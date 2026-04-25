@@ -264,6 +264,7 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
 
     for (;;) {
         // Patched libinfnoise: signed rc — < 0 fatal, 0 transient, > 0 bytes.
+        // The fatal rc value itself is the infnoise_error_t code.
         int32_t rc = readData(&ctx->trng_context, buf,
                               !kKeccak, kInfnoiseMultiplier);
 
@@ -273,7 +274,7 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
                            ctx->trng_context.message
                                ? ctx->trng_context.message
                                : "unknown",
-                           (int)ctx->trng_context.last_error);
+                           (int)rc);
             OPENSSL_cleanse(buf, BATCH_SIZE);
             ctx->state = EVP_RAND_STATE_ERROR;
             return 0;

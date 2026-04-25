@@ -33,9 +33,9 @@ jobs:
 
       # libinfnoise is not packaged upstream; build and install the static
       # library + header from source so the provider can be compiled.
-      - name: Build and install libinfnoise
+      - name: Build and install patched libinfnoise (Strykar fork)
         run: |
-          git clone --depth 1 https://github.com/waywardgeek/infnoise.git /tmp/infnoise
+          git clone --depth 1 --branch libinfnoise-error-codes https://github.com/Strykar/infnoise /tmp/infnoise
           cd /tmp/infnoise/software
           make -f Makefile.linux libinfnoise.a libinfnoise.so
           sudo install -D -m 644 libinfnoise.h  /usr/local/include/libinfnoise.h
