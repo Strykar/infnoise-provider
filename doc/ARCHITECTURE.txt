@@ -117,8 +117,20 @@ sharing one context with locking, and 4 threads each owning a context.
     OPENSSL_clear_free zeroes the context before release.
 
   Secure seed allocation
-    get_seed allocates via OPENSSL_secure_malloc (mlock'd pages);
-    clear_seed uses OPENSSL_secure_clear_free.
+    get_seed allocates via OPENSSL_secure_malloc; clear_seed uses
+    OPENSSL_secure_clear_free.
+
+    Caveat — mlock is the application's responsibility.  OpenSSL's
+    secure heap is opt-in: it must be initialised by the application
+    via CRYPTO_secure_malloc_init() before any provider call.  When
+    the secure heap is uninitialised, OPENSSL_secure_malloc silently
+    falls back to plain malloc — no mlock, no swap protection, no
+    additional protection beyond a regular allocation.  Applications
+    that want mlock'd seed buffers must initialise the secure heap
+    themselves (typical: 65536-byte arena before any EVP_RAND use).
+    The provider cannot do this on the application's behalf because
+    secure heap setup must precede ALL OpenSSL allocations process-
+    wide; calling it from inside a provider would be too late.
 
   Constant-time zeroization check
     verify_zeroization uses CRYPTO_memcmp against a zero buffer.  The

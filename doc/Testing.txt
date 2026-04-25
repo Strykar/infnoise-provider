@@ -2,7 +2,7 @@
         Infinite Noise TRNG — OpenSSL 3.x Provider: Testing
 ================================================================================
 
-The test harness runs 27 tests across 5 layers.  The TRNG must be connected
+The test harness runs 28 tests across 5 layers.  The TRNG must be connected
 for hardware tests; pure-API tests run without the device.
 
 
@@ -57,7 +57,7 @@ for hardware tests; pure-API tests run without the device.
   Layer                        Tests   What it covers
   ---------------------------  -----   --------------------------------------
   1.  Hardware                    4    USB detection, init/deinit, raw reads
-  2a. Provider API (no HW)        6    Load, params, fetch, gettable, state,
+  2a. Provider API (no HW)        7    Load, params, fetch, gettable, state,
                                        reload cycles
   2b. Provider API (HW)           6    Lifecycle, ctx params, locking,
                                        strength, sizes, reseed

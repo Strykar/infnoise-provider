@@ -133,7 +133,7 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 ## Testing
 
-The test harness runs 27 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [doc/Testing.txt](doc/Testing.txt) for invocations and the per-layer breakdown.
+The test harness runs 28 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [doc/Testing.txt](doc/Testing.txt) for invocations and the per-layer breakdown.
 
 ### 24-hour endurance run
 
@@ -170,7 +170,7 @@ sudo usermod -aG plugdev $USER
 ```
 infnoise-provider/
   src/infnoise_prov.c        Provider implementation
-  test/test_infnoise_prov.c  Test harness (27 tests)
+  test/test_infnoise_prov.c  Test harness (28 tests)
   test/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
                              spill-buffer phase, cycles instantiate/
                              uninstantiate, tracks RSS for leaks, dumps

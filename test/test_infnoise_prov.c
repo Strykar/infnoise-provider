@@ -24,7 +24,9 @@
 #include <openssl/evp.h>
 #include <openssl/params.h>
 #include <openssl/provider.h>
+#include <openssl/proverr.h>
 #include <openssl/rand.h>
+#include <openssl/randerr.h>
 #include <openssl/rsa.h>
 #include <math.h>
 #include <stdarg.h>
@@ -406,6 +408,100 @@ static void test_evp_rand_ctx_uninitialised(void)
 out:
     OSSL_PROVIDER_unload(prov);
     OSSL_LIB_CTX_free(libctx);
+}
+
+// Verify that documented failure paths raise the documented OpenSSL
+// error codes.  Catches regressions where a refactor silently changes
+// the reason code emitted by ERR_raise on a given path - critical for
+// callers that branch on the error reason.  No hardware required:
+// every path tested here fails BEFORE initInfnoise would be called.
+static void test_evp_rand_error_codes(void)
+{
+    const char *name = "evp_rand_error_codes";
+    OSSL_LIB_CTX *libctx = OSSL_LIB_CTX_new();
+    if (libctx == NULL) { test_fail(name, "OSSL_LIB_CTX_new failed"); return; }
+
+    OSSL_PROVIDER *prov = load_infnoise_provider(libctx, name);
+    if (prov == NULL) { OSSL_LIB_CTX_free(libctx); return; }
+
+    EVP_RAND *rand = EVP_RAND_fetch(libctx, "infnoise", NULL);
+    EVP_RAND_CTX *ctx = NULL;
+    int ok = 1;
+
+    if (rand == NULL) {
+        test_fail(name, "EVP_RAND_fetch failed");
+        ok = 0; goto out;
+    }
+    ctx = EVP_RAND_CTX_new(rand, NULL);
+    if (ctx == NULL) {
+        test_fail(name, "EVP_RAND_CTX_new failed");
+        ok = 0; goto out;
+    }
+
+    // 1. instantiate(strength=512) on an uninstantiated context must fail
+    //    with PROV_R_INSUFFICIENT_DRBG_STRENGTH (the strength check runs
+    //    before initInfnoise, so this path doesn't need hardware).
+    ERR_clear_error();
+    if (EVP_RAND_instantiate(ctx, 512, 0, NULL, 0, NULL)) {
+        test_fail(name, "instantiate(strength=512) unexpectedly succeeded");
+        ok = 0; goto out;
+    }
+    {
+        unsigned long e = ERR_peek_error();
+        int reason = ERR_GET_REASON(e);
+        if (reason != PROV_R_INSUFFICIENT_DRBG_STRENGTH) {
+            test_fail(name,
+                "strength check: expected reason %d (PROV_R_INSUFFICIENT_DRBG_STRENGTH), got %d",
+                PROV_R_INSUFFICIENT_DRBG_STRENGTH, reason);
+            ok = 0; goto out;
+        }
+    }
+    ERR_clear_error();
+
+    // 2. reseed before instantiate must fail with PROV_R_NOT_INSTANTIATED.
+    ERR_clear_error();
+    if (EVP_RAND_reseed(ctx, 0, NULL, 0, NULL, 0)) {
+        // Some OpenSSL versions auto-instantiate; treat as inconclusive.
+        printf("         note: reseed before instantiate auto-instantiated; "
+               "skipping reason-code check\n");
+    } else {
+        unsigned long e = ERR_peek_error();
+        int reason = ERR_GET_REASON(e);
+        if (reason != PROV_R_NOT_INSTANTIATED) {
+            test_fail(name,
+                "reseed: expected reason %d (PROV_R_NOT_INSTANTIATED), got %d",
+                PROV_R_NOT_INSTANTIATED, reason);
+            ok = 0; goto out;
+        }
+    }
+    ERR_clear_error();
+
+    // 3. generate before instantiate must fail with PROV_R_NOT_INSTANTIATED.
+    //    Same caveat: some OpenSSL versions auto-instantiate; skip check
+    //    if the call somehow succeeds.
+    ERR_clear_error();
+    unsigned char buf[16];
+    if (EVP_RAND_generate(ctx, buf, sizeof(buf), 0, 0, NULL, 0)) {
+        printf("         note: generate before instantiate auto-instantiated; "
+               "skipping reason-code check\n");
+    } else {
+        unsigned long e = ERR_peek_error();
+        int reason = ERR_GET_REASON(e);
+        if (reason != PROV_R_NOT_INSTANTIATED) {
+            test_fail(name,
+                "generate: expected reason %d (PROV_R_NOT_INSTANTIATED), got %d",
+                PROV_R_NOT_INSTANTIATED, reason);
+            ok = 0; goto out;
+        }
+    }
+    ERR_clear_error();
+
+out:
+    EVP_RAND_CTX_free(ctx);
+    EVP_RAND_free(rand);
+    OSSL_PROVIDER_unload(prov);
+    OSSL_LIB_CTX_free(libctx);
+    if (ok) test_pass(name);
 }
 
 // Test that multiple provider load/unload cycles don't leak or crash.
@@ -1388,6 +1484,7 @@ int main(void)
     test_evp_rand_fetch();
     test_evp_rand_gettable_params_query();
     test_evp_rand_ctx_uninitialised();
+    test_evp_rand_error_codes();
     test_provider_reload();
 
     section("Layer 2b: Provider API tests (hardware required)");

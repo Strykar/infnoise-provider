@@ -79,7 +79,7 @@ checksec with Full RELRO, Stack Canary, SHSTK & IBT, NX, PIE, stripped.
 
 Every patch that touches src/ must be exercised under:
 
-  make test           # 27-test harness (hardware required)
+  make test           # 28-test harness (hardware required)
   make test-asan      # AddressSanitizer clean
   make test-ubsan     # UndefinedBehaviorSanitizer clean
   make test-tsan      # ThreadSanitizer clean (no hardware needed)
@@ -163,7 +163,7 @@ reverting them in isolation must yield a buildable tree.
 Before opening a PR, confirm:
 
   [ ] `make clean && make` succeeds with no new warnings.
-  [ ] `make test` passes 27/27 (hardware connected).
+  [ ] `make test` passes 28/28 (hardware connected).
   [ ] `make test-asan` clean.
   [ ] `make test-ubsan` clean.
   [ ] `make test-tsan` clean.
