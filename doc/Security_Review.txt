@@ -1,0 +1,229 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: Security Review Brief
+================================================================================
+
+Scope and questions for an external reviewer asked to evaluate this provider
+before its first signed release.  Estimated review effort: 4-8 hours for a
+qualified reviewer (OpenSSL Provider API + memory-safety familiarity).
+
+
+1. CODE UNDER REVIEW
+--------------------
+
+  src/infnoise_prov.c          ~660 lines of C, single translation unit.
+                               Implements OSSL_OP_RAND seed source backed
+                               by a USB hardware TRNG.
+
+  fuzz/mock_libinfnoise.c      Hardware stub used by all test/fuzz code.
+                               Not shipped; relevant only for evaluating
+                               whether the test infrastructure faithfully
+                               models real libinfnoise behaviour.
+
+  src/                         Out of scope: no other provider source files.
+
+  test/, fuzz/                 In scope only insofar as they validate the
+                               security claims; not part of the shipped
+                               attack surface.
+
+The shipped artifact is a stripped, hardened shared object loaded into
+OpenSSL via OSSL_PROVIDER_load.  It links libcrypto, libftdi1, libinfnoise.
+
+
+2. THREAT MODEL
+---------------
+
+  T1  Memory disclosure to caller.  Any path that returns to the caller
+      with bytes in the output buffer that were not produced by the TRNG
+      (uninitialised heap, leftover spill data, partial entropy on error)
+      is a defect.  Caller treats the buffer as cryptographic randomness.
+
+  T2  State corruption.  Any sequence of dispatch calls that leaves the
+      context in an inconsistent half-initialised state (USB handle held
+      after error, lock dangling, spill bytes persisting after
+      uninstantiate) is a defect.
+
+  T3  Resource exhaustion DoS.  Inputs that drive unbounded CPU/RAM/USB
+      blocking time (large outlen, malicious readData stream returning
+      transients forever).
+
+  T4  Compromised entropy source.  libinfnoise lying about success
+      (returning 0 forever, returning negative errors, returning short
+      reads) must not corrupt the provider or leak memory.
+
+  T5  API misuse by caller.  OpenSSL or third-party code drives the
+      dispatch in unexpected sequences (generate before instantiate,
+      double-instantiate, freectx after error, etc.).
+
+
+3. SPECIFIC CLAIMS TO VERIFY
+----------------------------
+
+3.1  256-bit security strength.
+
+  The provider declares INFNOISE_STRENGTH = 256 via OSSL_RAND_PARAM_STRENGTH.
+  The justification (in doc/ARCHITECTURE.txt): the Modular Entropy Multiplier
+  produces ~0.864 bits of Shannon entropy per raw bit; Keccak-1600 absorbs
+  512 raw bits per round-trip and squeezes 512 whitened bits, retaining
+  1088 bits of hidden capacity.  256-bit strength is therefore comfortably
+  below the sponge's collision-resistance ceiling.
+
+  Reviewer:
+    - Is the entropy-per-raw-bit estimate sound for the INM topology?
+    - Does the multiplier=2 / keccak=true / BATCH_SIZE=64 configuration
+      actually deliver the claimed 256 bits per 64-byte squeeze?
+    - Are there published cryptanalytic concerns about the specific
+      Keccak parameters or the sponge construction at this rate?
+
+3.2  Cleanse-on-error invariant.
+
+  Claim: if infnoise_rand_generate returns 0 (failure), the caller's
+  output buffer is fully zeroed before return.  Same for any internal
+  scratch (the phase-3 batch[] buffer).
+
+  Reviewer:
+    - Walk every "return 0" in infnoise_rand_generate and check the
+      cleanse logic (lines 322-385 of src/infnoise_prov.c).
+    - Specifically: the phase-2 short-read path (line ~358) and the
+      phase-3 loop fix (line ~366, post-2026-04-25).
+    - Is the OPENSSL_cleanse(out, outlen) sufficient, or should a
+      caller-provided "valid bytes written" out-parameter be added?
+
+3.3  Lock contract sufficiency.
+
+  Claim: a single PROV_INFNOISE shared between threads is safe iff every
+  pre-mutating call is wrapped in infnoise_rand_lock / infnoise_rand_unlock.
+  The provider exposes enable_locking → lock → unlock as the contract.
+
+  Reviewer:
+    - Does CRYPTO_THREAD_write_lock provide adequate isolation for the
+      mutated state (ctx->state, ctx->spill, ctx->trng_context)?
+    - Are there any reads of those fields outside the locked region that
+      could observe a half-written value?
+    - The lock is write-only (no reader/writer distinction).  Is that
+      the right primitive, or should infnoise_rand_lock acquire a read
+      lock for non-mutating ops (none exist today, but for future-
+      proofing)?
+    - test_infnoise_tsan.c stresses 4 threads × 20 000 iterations on a
+      shared context with no TSan reports.  Is that adequate evidence,
+      or does the reviewer want more (longer runs, more threads, race-
+      window injection)?
+
+3.4  Spill buffer cleanse on every transition.
+
+  The spill buffer carries 0-63 bytes of entropy across generate calls.
+  It must be cleansed on:
+    - SpillBufferDrain (after copying out)
+    - infnoise_rand_uninstantiate (start-of-cleanse)
+    - infnoise_rand_freectx (via OPENSSL_clear_free of the whole struct)
+
+  Reviewer:
+    - Walk the spill state machine: is there any path where bytes can
+      live past the operation that should have cleansed them?
+    - Does verify_zeroization actually verify what its name implies, or
+      could it return 1 with non-zero padding/struct fields elsewhere?
+
+3.5  Allocator-failure paths.
+
+  Six lines in src/infnoise_prov.c handle alloc-failure (zalloc /
+  secure_malloc / lock_new returning NULL) by returning the failure
+  indicator and bailing out.  Inline `// SECURITY: reviewed 2026-04-25`
+  comments record the maintainer's audit conclusion.
+
+  test/test_infnoise_alloc.c installs CRYPTO_set_mem_functions hooks
+  that fail on demand and drives each site, verifying clean failure.
+
+  Reviewer:
+    - Is the inline audit reasoning (no partial state, caller can retry,
+      out-params untouched) correct at each site?
+    - Are the alloc-failure tests in test_infnoise_alloc.c sufficient,
+      or should additional sites be exercised?
+
+3.6  Error queue contents.
+
+  Every failure path raises a specific error code via ERR_raise /
+  ERR_raise_data.  The codes are not asserted by any test; the harness
+  only checks that errors don't crash.
+
+  Reviewer:
+    - Are the right error codes raised at each site?  Specifically:
+      PROV_R_IN_ERROR_STATE for ERROR-state generate, PROV_R_NOT_INSTANTIATED
+      for UNINIT-state generate, PROV_R_INSUFFICIENT_DRBG_STRENGTH for
+      strength > 256, etc.
+    - Is the format string used with ERR_raise_data safe against
+      attacker-controlled values?  (The libinfnoise message field is
+      passed; it's a const char* the library populates internally.)
+
+
+4. EXISTING ASSURANCE EVIDENCE
+------------------------------
+
+Available to the reviewer:
+
+  - 5-harness libFuzzer suite (256.5 M inputs across the whole suite,
+    no findings post-fix).  Coverage 97.9% line, 22/23 functions ≥90%.
+    See doc/Fuzz_Coverage.txt for breakdown.
+
+  - Differential oracle harness (fuzz/fuzz_spill_oracle.c) catches
+    correctness bugs in the spill buffer logic, not just crashes.  This
+    found the phase-3 short-read disclosure (fixed 2026-04-25).
+
+  - 27-test integration harness (make test) including statistical
+    quality checks (monobit, byte distribution, runs, two-sample).
+
+  - 24-hour endurance run: 14 698 generate calls, 4.21 GiB output, 0
+    errors, RSS bounded (issue #8, see README).
+
+  - Sanitiser builds: ASan, UBSan, Valgrind, TSan via dedicated targets
+    (make test-asan / -ubsan / -valgrind / -tsan).
+
+  - Static analysis: cppcheck + gcc -fanalyzer (make lint).
+
+  - Coverity Scan: weekly cron (see README badges).
+
+  - CodeQL: PR + push + weekly cron.
+
+What the reviewer is asked to assess that the above does NOT cover:
+
+  - Cryptographic soundness of the strength claim (3.1).
+  - Whether the contract design is correct, not just whether the
+    implementation matches it (3.3, 3.6).
+  - Threat scenarios outside T1-T5 that the maintainer hasn't considered.
+
+
+5. OUT OF SCOPE
+---------------
+
+  - libinfnoise itself.  The provider treats it as a trusted dependency.
+    Vulnerabilities in libinfnoise are reported upstream
+    (waywardgeek/infnoise) per its own disclosure policy.
+
+  - libftdi1 and libusb.  Same.
+
+  - OpenSSL libcrypto.  Same.
+
+  - The Infinite Noise TRNG hardware design.  The provider assumes the
+    USB device is the genuine FT240XQ-based INM described in the
+    upstream README.  Adversarial-USB scenarios (a malicious device that
+    enumerates as an INM) are noted in doc/ARCHITECTURE.txt as a limit
+    of trust but are not in the provider's defensive remit.
+
+
+6. DELIVERABLES REQUESTED
+-------------------------
+
+  - Pass/fail verdict against each claim in §3.
+  - Any additional findings beyond §2's threat model.
+  - Recommended changes (with location: file:line) for any defect.
+  - Optional: notes on whether the existing assurance evidence (§4) is
+    sufficient for the maintainer's "first signed release" gate, or
+    what's missing.
+
+
+7. CONTACT
+----------
+
+Open issues at https://github.com/Strykar/infnoise-provider/issues for
+non-sensitive findings; SECURITY.md describes the disclosure path for
+vulnerabilities.
+
+================================================================================
