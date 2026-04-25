@@ -41,7 +41,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean
+.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean sbom
 
 all: $(TARGET_LIB)
 
@@ -233,6 +233,64 @@ clean:
 	-$(RM) $(SRCDIR)/*.o $(TESTDIR)/*.o
 	-$(RM) core core.*
 	-$(RM) $(MAN7_OUT)
+	-$(RM) sbom.spdx.txt
+
+# Generate an SPDX-tag-value SBOM for the runtime dependencies of
+# infnoise.so.  No external tools required — uses pkg-config and ldconfig.
+# Output: sbom.spdx.txt, attached to GitHub release pages alongside the
+# .so and signature.
+sbom: $(TARGET_LIB)
+	@echo "SPDXVersion: SPDX-2.3"               > sbom.spdx.txt
+	@echo "DataLicense: CC0-1.0"                >> sbom.spdx.txt
+	@echo "SPDXID: SPDXRef-DOCUMENT"            >> sbom.spdx.txt
+	@echo "DocumentName: infnoise-provider"     >> sbom.spdx.txt
+	@echo "DocumentNamespace: https://github.com/Strykar/infnoise-provider/sbom/$$(date -u +%Y%m%dT%H%M%SZ)" >> sbom.spdx.txt
+	@echo "Creator: Tool: infnoise-provider-Makefile" >> sbom.spdx.txt
+	@echo "Created: $$(date -u +%Y-%m-%dT%H:%M:%SZ)"  >> sbom.spdx.txt
+	@echo ""                                    >> sbom.spdx.txt
+	@echo "##### Package: infnoise-provider"    >> sbom.spdx.txt
+	@echo "PackageName: infnoise-provider"      >> sbom.spdx.txt
+	@echo "SPDXID: SPDXRef-Package-infnoise-provider" >> sbom.spdx.txt
+	@echo "PackageVersion: $$(git describe --tags --always 2>/dev/null || echo 'unversioned')" >> sbom.spdx.txt
+	@echo "PackageDownloadLocation: https://github.com/Strykar/infnoise-provider" >> sbom.spdx.txt
+	@echo "PackageLicenseDeclared: GPL-2.0-or-later" >> sbom.spdx.txt
+	@echo "PackageLicenseConcluded: GPL-2.0-or-later" >> sbom.spdx.txt
+	@echo "PackageFileName: infnoise.so"        >> sbom.spdx.txt
+	@echo "PackageChecksum: SHA256: $$(sha256sum $(TARGET_LIB) | cut -d' ' -f1)" >> sbom.spdx.txt
+	@echo ""                                    >> sbom.spdx.txt
+	@echo "##### Runtime dependencies (read via pkg-config / ldconfig)" >> sbom.spdx.txt
+	@for lib in libcrypto libftdi1 libusb-1.0; do \
+	    ver=$$(pkg-config --modversion $$lib 2>/dev/null || echo 'unknown'); \
+	    case "$$lib" in \
+	      libcrypto) lic="Apache-2.0" ;; \
+	      libftdi1)  lic="LGPL-2.1-only" ;; \
+	      libusb-1.0) lic="LGPL-2.1-or-later" ;; \
+	    esac; \
+	    echo ""                                 >> sbom.spdx.txt; \
+	    echo "PackageName: $$lib"               >> sbom.spdx.txt; \
+	    spdxid=$$(echo $$lib | tr -c 'A-Za-z0-9' '-' | sed 's/-*$$//'); \
+	    echo "SPDXID: SPDXRef-Package-$$spdxid" >> sbom.spdx.txt; \
+	    echo "PackageVersion: $$ver"            >> sbom.spdx.txt; \
+	    echo "PackageDownloadLocation: NOASSERTION" >> sbom.spdx.txt; \
+	    echo "PackageLicenseDeclared: $$lic"    >> sbom.spdx.txt; \
+	    echo "PackageLicenseConcluded: $$lic"   >> sbom.spdx.txt; \
+	    echo "FilesAnalyzed: false"             >> sbom.spdx.txt; \
+	done
+	@echo ""                                    >> sbom.spdx.txt
+	@echo "PackageName: libinfnoise"            >> sbom.spdx.txt
+	@echo "SPDXID: SPDXRef-Package-libinfnoise" >> sbom.spdx.txt
+	@echo "PackageVersion: Strykar/infnoise@libinfnoise-error-codes" >> sbom.spdx.txt
+	@echo "PackageDownloadLocation: https://github.com/Strykar/infnoise-provider/blob/master/docs/ARCHITECTURE.txt#section-6" >> sbom.spdx.txt
+	@echo "PackageLicenseDeclared: GPL-3.0-or-later" >> sbom.spdx.txt
+	@echo "PackageLicenseConcluded: GPL-3.0-or-later" >> sbom.spdx.txt
+	@echo "FilesAnalyzed: false"                >> sbom.spdx.txt
+	@echo ""                                    >> sbom.spdx.txt
+	@echo "##### Relationships"                 >> sbom.spdx.txt
+	@for spdx in libcrypto libftdi1 libusb-1-0 libinfnoise; do \
+	    echo "Relationship: SPDXRef-Package-infnoise-provider DEPENDS_ON SPDXRef-Package-$$spdx" >> sbom.spdx.txt; \
+	done
+	@echo ""
+	@echo "wrote sbom.spdx.txt ($$(wc -l < sbom.spdx.txt) lines)"
 
 ################################
 # Fuzzing (requires clang + compiler-rt for -fsanitize=fuzzer)

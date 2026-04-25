@@ -32,3 +32,6 @@ fuzz/fuzz_provider_init
 
 # Internal development notes — never upload
 bg.md
+
+# SBOM (generated at release time via 'make sbom')
+sbom.spdx.txt

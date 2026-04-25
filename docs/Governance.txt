@@ -1,0 +1,90 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: Governance
+================================================================================
+
+Single-maintainer project at the alpha stage.  This file documents who
+holds commit / release privileges, what authentication controls are in
+place, and what happens if those controls fail.  Required by OSTIF
+best-practices §6 (knowledgebase: list of access privileges) and
+informs the threat model in docs/Security_Review.txt.
+
+
+1. MAINTAINER
+-------------
+
+  Avinash H. Duduskar — GitHub @Strykar.
+
+  Sole maintainer; all commits, releases, security-advisory replies,
+  and CI configuration changes go through this account.  There is no
+  co-maintainer to fall back on at this scale; users running production
+  builds should pin to a signed-release tag (when available — see §3),
+  not master, so that an account compromise cannot push malicious code
+  into their build pipeline between releases.
+
+
+2. AUTHENTICATION
+-----------------
+
+  GitHub account
+    - Two-factor authentication: enforced.
+    - Push access: SSH keys only (no HTTPS password fallback).
+
+  Local development
+    - Code commits: not currently signed repository-wide; signed-tag
+      releases (see §3) will introduce signing.
+
+  See SECURITY.md for the disclosure path used to report any concern
+  about these controls.
+
+
+3. RELEASE SIGNING
+------------------
+
+  No signed release exists yet.  The first signed release is gated on:
+
+    - 24-hour endurance run green       [done — see issue #8]
+    - libinfnoise patches in upstream   [done — Strykar/infnoise fork]
+    - External cryptographic review     [pending — see
+                                          docs/Security_Review.txt]
+
+  When the first signed release ships:
+
+    - Tags will be PGP-signed with the maintainer's primary key.
+    - The key fingerprint will be published in README.md and uploaded
+      to a public keyserver before the first signed tag.
+    - Release tarballs will carry detached PGP signatures alongside
+      the tarball on the GitHub release page.
+
+
+4. KEY / ACCOUNT COMPROMISE CONTINGENCY
+---------------------------------------
+
+  If the maintainer's GitHub account or signing key is suspected
+  compromised:
+
+    1. Affected GitHub tokens are revoked via account settings;
+       2FA recovery codes used if needed.
+
+    2. The signing key is revoked via a published revocation
+       certificate.  The new key fingerprint is announced via:
+         - SECURITY.md update on master (commit signed by the new key).
+         - A new GitHub release marked "Security Advisory: Key
+           Rotation" with the rotation rationale.
+         - A pinned issue on the repository for visibility.
+
+    3. Any release tags signed during the suspected-compromise window
+       are enumerated in a coordinated security advisory.
+
+    4. If the GitHub account itself is compromised (not just the
+       signing key), the maintainer contacts GitHub Support for
+       account recovery before any of the above; users are advised
+       via the leetronics.de community channel (where the hardware
+       is sold) until the GitHub account is restored.
+
+
+5. CHANGE LOG
+-------------
+
+  2026-04-25  Initial governance document, post-Tier-A-E security audit.
+
+================================================================================

@@ -140,7 +140,34 @@ CI workflows (build / sanitizers / cifuzz / codeql / coverity) clone
 the patched fork branch directly.  See docs/ARCHITECTURE.txt §6.
 
 
-7. COMMIT HYGIENE
+7. SECURITY ANNOUNCEMENT FEEDS
+------------------------------
+
+The maintainer subscribes to the upstream announcement channels for
+every dependency in the trust path, and acts on advisories that
+affect the provider:
+
+  OpenSSL              openssl-announce@openssl.org
+                       https://www.openssl.org/community/mailinglists.html
+  libftdi              libftdi@developer.intra2net.com
+                       https://developer.intra2net.com/mailman/listinfo/libftdi
+  libusb               libusb-devel@lists.sourceforge.net
+                       https://sourceforge.net/p/libusb/mailman/libusb-devel/
+  libinfnoise          GitHub watch: Strykar/infnoise (patched fork) +
+                       waywardgeek/infnoise (upstream tracking)
+  Linux kernel         GitHub watch: linux distros' security tags;
+                       relevant for FTDI driver (drivers/usb/serial/ftdi_sio.c)
+
+When an advisory hits any of these affecting our usage, the response
+is:
+  1. Open a tracking issue with [security-advisory] label.
+  2. Assess: does the affected interface reach our code path?
+  3. If yes, either bump the dependency floor in README §Requirements,
+     or add a workaround + regression test, depending on severity.
+  4. Document in CHANGELOG once releases begin.
+
+
+8. COMMIT HYGIENE
 -----------------
 
   - One logical change per commit.  A bug fix and a refactor are two
@@ -157,7 +184,7 @@ Commits that affect behavior must be testable in isolation — that is,
 reverting them in isolation must yield a buildable tree.
 
 
-8. PULL REQUEST CHECKLIST
+9. PULL REQUEST CHECKLIST
 -------------------------
 
 Before opening a PR, confirm:
@@ -181,7 +208,7 @@ Include the output of at least `make test` in the PR description when
 hardware-dependent code changes.
 
 
-9. LICENSING
+10. LICENSING
 ------------
 
 By submitting a patch you agree it is licensed under GPL-2.0-or-later,
@@ -195,7 +222,7 @@ If your employer claims rights to your contributions, ensure you have
 authorization to contribute under this license before submitting.
 
 
-10. REPORTING BUGS
+11. REPORTING BUGS
 ------------------
 
 When filing a bug, include:
