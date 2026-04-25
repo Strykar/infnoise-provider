@@ -175,10 +175,13 @@ USB permissions
             ATTRS{idProduct}=="6015", \
             GROUP="plugdev", MODE="0664", TAG+="uaccess"
 
-Upstream health-check behaviour
-:   With unpatched libinfnoise, the library calls `exit(1)` on certain
-    health-check failures.  The provider cannot intercept this.  Fixed
-    upstream in waywardgeek/infnoise commit `527ff2a`.
+libinfnoise requirements
+:   The provider hard-requires the patched libinfnoise fork
+    (Strykar/infnoise on the *libinfnoise-error-codes* branch), which
+    holds Keccak/health state per-context and returns a signed
+    `int32_t` from `readData`.  Building against unpatched
+    waywardgeek/infnoise upstream fails at compile time with a
+    clear `#error`.
 
 
 SEE ALSO

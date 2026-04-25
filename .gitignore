@@ -6,7 +6,7 @@ test_infnoise_prov-ubsan
 test_infnoise_soak
 
 # Generated manpage (built from the .md source via `make man`)
-doc/OSSL_PROVIDER-infnoise.7
+docs/OSSL_PROVIDER-infnoise.7
 
 # libFuzzer reproducers (written to CWD when -artifact_prefix is unset)
 crash-*

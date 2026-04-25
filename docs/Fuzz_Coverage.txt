@@ -128,20 +128,20 @@ the current libFuzzer harness set:
                       caught here.  The 24-hour endurance run (issue #8,
                       `make test-soak`) is what exercises the real path.
 
-  Health checks.      The patched libinfnoise's INFNOISE_KECCAK_STATE_SIZE
-                      branch is the only one compiled in (mock follows).
-                      The unpatched-libinfnoise code path (#if !INFNOISE_PATCHED)
-                      is not exercised by fuzzing.
-
   Statistical quality. Whether the entropy stream actually passes NIST
                        SP 800-90B health checks is verified by the soak
                        harness's ent/rngtest/dieharder pipeline, not by
                        libFuzzer.
 
-  External error handling. ERR_raise / ERR_raise_data calls into OpenSSL
-                       are exercised, but the actual error queue contents
-                       are not asserted (we don't crash if the wrong error
-                       code is queued, only if the queue corrupts memory).
+  External error queue contents. Library-raised error codes via
+                       ERR_raise / ERR_raise_data are exercised
+                       structurally but not asserted by the fuzz
+                       harnesses themselves (a wrong error code wouldn't
+                       crash, so libFuzzer wouldn't notice).
+                       test_evp_rand_error_codes in test_infnoise_prov.c
+                       covers three documented failure paths; reviewer
+                       to confirm coverage of the remaining ones per
+                       docs/Security_Review.txt §3.6.
 
 
 6. REPRODUCING THE MEASUREMENT

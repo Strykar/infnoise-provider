@@ -11,7 +11,7 @@
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="doc/infinite-noise-incase-scaled.jpg" alt="Infinite Noise TRNG" width="360"><br>
+  <img src="docs/infinite-noise-incase-scaled.jpg" alt="Infinite Noise TRNG" width="360"><br>
   <sub>Photo: <a href="https://leetronics.de/en/shop/infinite-noise-trng/">leetronics.de</a></sub>
 </p>
 
@@ -23,7 +23,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 
 **Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
-> **Alpha software** (current tag: `v0.0.1-alpha`).  The code passes its own test harness and sanitizer runs, but has not been independently audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy and [doc/TODO.txt](doc/TODO.txt) for the path to beta.
+> **Alpha software** (current tag: `v0.0.1-alpha`).  The code passes its own test harness and sanitizer runs, but has not been independently audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
 
 ## Requirements
 
@@ -133,7 +133,7 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 ## Testing
 
-The test harness runs 28 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [doc/Testing.txt](doc/Testing.txt) for invocations and the per-layer breakdown.
+The test harness runs 28 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [docs/Testing.txt](docs/Testing.txt) for invocations and the per-layer breakdown.
 
 ### 24-hour endurance run
 
@@ -141,11 +141,11 @@ The test harness runs 28 tests across 5 layers (hardware, provider API, integrat
 
 The two plots below visualise the same entropy stream from two angles.  The pair-wise scatter is the most striking: raw TRNG output exposes the Modular Entropy Multiplier's preferred bit states as a regular grid; after Keccak whitening the structure is gone and the byte plane fills uniformly.
 
-![24-hour endurance run: pair-wise byte distribution](doc/endurance-24h-scatter.png)
+![24-hour endurance run: pair-wise byte distribution](docs/endurance-24h-scatter.png)
 
 The byte-value heatmap shows each byte as a coloured pixel (0 black → 255 white).  Raw output has warmer clumps where the multiplier favours mid-range values; whitening flattens the texture into uniform fine-grain noise.
 
-![24-hour endurance run: byte-value heatmap](doc/endurance-24h-heatmap.png)
+![24-hour endurance run: byte-value heatmap](docs/endurance-24h-heatmap.png)
 
 ## USB permissions
 
@@ -171,19 +171,27 @@ sudo usermod -aG plugdev $USER
 infnoise-provider/
   src/infnoise_prov.c        Provider implementation
   test/test_infnoise_prov.c  Test harness (28 tests)
+  test/test_infnoise_tsan.c  ThreadSanitizer concurrency stress (make test-tsan)
+  test/test_infnoise_alloc.c Allocator-failure injection test (make test-alloc)
   test/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
                              spill-buffer phase, cycles instantiate/
                              uninstantiate, tracks RSS for leaks, dumps
                              rolling samples for ent/rngtest/dieharder
+  fuzz/fuzz_*.c              5 libFuzzer harnesses (see docs/Fuzz_Coverage.txt)
+  fuzz/mock_libinfnoise.c    Hardware stub for fuzz/test builds
+  fuzz/corpus/<harness>/     Persistent fuzz corpus, committed for replay
+  fuzz/regressions/          Inputs that triggered fixed bugs (replayed by CI)
   conf/infnoise-provider.cnf OpenSSL configuration
   conf/openssl.supp          Valgrind suppressions
-  doc/ARCHITECTURE.txt       Design decisions and security analysis
-  doc/Build_Security.txt     Binary hardening + runtime security properties
-  doc/CONTRIBUTING.txt       Contribution guidelines
-  doc/OSSL_PROVIDER-infnoise.7.md
+  docs/ARCHITECTURE.txt       Design decisions and security analysis
+  docs/Build_Security.txt     Binary hardening + runtime security properties
+  docs/CONTRIBUTING.txt       Contribution guidelines
+  docs/Fuzz_Coverage.txt      Per-function fuzz coverage report
+  docs/OSSL_PROVIDER-infnoise.7.md
                              Pandoc source for the section-7 manpage
-  doc/Testing.txt            Test harness layers and invocations
-  doc/TODO.txt               Deferred work toward beta
+  docs/Security_Review.txt    Brief for an external cryptographic reviewer
+  docs/Testing.txt            Test harness layers and invocations
+  docs/TODO.txt               Deferred work toward beta
   .github/                   Issue and pull-request templates
   .editorconfig              Editor style rules
   SECURITY.md                Vulnerability disclosure policy
@@ -194,7 +202,7 @@ infnoise-provider/
 
 ## Security
 
-Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped), entropy-buffer cleansing on all paths, `mlock`'d seed buffers, bounded request sizes, and thread-safe dispatch.  See [doc/Build_Security.txt](doc/Build_Security.txt) for the full list and [doc/ARCHITECTURE.txt](doc/ARCHITECTURE.txt) for the design rationale.
+Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped), entropy-buffer cleansing on all paths, `mlock`'d seed buffers, bounded request sizes, and thread-safe dispatch.  See [docs/Build_Security.txt](docs/Build_Security.txt) for the full list and [docs/ARCHITECTURE.txt](docs/ARCHITECTURE.txt) for the design rationale.
 
 ## Known limitations
 
@@ -203,7 +211,7 @@ Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, 
 
 ## Contributing
 
-Patches, bug reports, and feature proposals are welcome.  See [doc/CONTRIBUTING.txt](doc/CONTRIBUTING.txt) for style, build / test expectations, and the security invariants that any change must preserve.  All participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+Patches, bug reports, and feature proposals are welcome.  See [docs/CONTRIBUTING.txt](docs/CONTRIBUTING.txt) for style, build / test expectations, and the security invariants that any change must preserve.  All participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 For suspected vulnerabilities, please follow [SECURITY.md](SECURITY.md) rather than opening a public issue.
 

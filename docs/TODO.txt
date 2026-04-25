@@ -13,7 +13,7 @@ Packaging
   [ ] Signed release tarballs + PGP fingerprint in README
 
 Documentation
-  [ ] doc/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
+  [ ] docs/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
   [x] Drop the INFNOISE_PATCHED compile-time bridge.  Provider now hard-
       requires the patched libinfnoise fork (per-context state, signed-
       rc readData); a #ifndef INFNOISE_KECCAK_STATE_SIZE / #error guards
@@ -31,7 +31,7 @@ CI and testing
   [x] libFuzzer harness — 5 targets under fuzz/ (mock_libinfnoise stub,
       fuzz_dispatch state machine, fuzz_params boundaries, fuzz_ossl_params
       param surface, fuzz_spill_oracle differential test, fuzz_provider_init
-      OpenSSL entry points), make fuzz target, doc/Fuzz_Coverage.txt
+      OpenSSL entry points), make fuzz target, docs/Fuzz_Coverage.txt
       (97.9% line, 22/23 functions ≥90%).  CIFuzz workflow is opt-in.
 
 Release discipline

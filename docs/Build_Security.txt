@@ -4,7 +4,7 @@
 
 This document records the binary-hardening posture of the provider and the
 runtime security properties it preserves.  For the underlying design
-rationale and threat model, see doc/ARCHITECTURE.txt.
+rationale and threat model, see docs/ARCHITECTURE.txt.
 
 
 1. BINARY HARDENING
@@ -45,7 +45,7 @@ These are enforced by the Makefile; any regression will surface in the
 3. FURTHER READING
 ------------------
 
-  - doc/ARCHITECTURE.txt  — design decisions and security invariants
+  - docs/ARCHITECTURE.txt  — design decisions and security invariants
   - SECURITY.md           — vulnerability disclosure policy
 
 

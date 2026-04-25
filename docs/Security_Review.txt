@@ -61,7 +61,7 @@ OpenSSL via OSSL_PROVIDER_load.  It links libcrypto, libftdi1, libinfnoise.
 3.1  256-bit security strength.
 
   The provider declares INFNOISE_STRENGTH = 256 via OSSL_RAND_PARAM_STRENGTH.
-  The justification (in doc/ARCHITECTURE.txt): the Modular Entropy Multiplier
+  The justification (in docs/ARCHITECTURE.txt): the Modular Entropy Multiplier
   produces ~0.864 bits of Shannon entropy per raw bit; Keccak-1600 absorbs
   512 raw bits per round-trip and squeezes 512 whitened bits, retaining
   1088 bits of hidden capacity.  256-bit strength is therefore comfortably
@@ -161,7 +161,7 @@ Available to the reviewer:
 
   - 5-harness libFuzzer suite (256.5 M inputs across the whole suite,
     no findings post-fix).  Coverage 97.9% line, 22/23 functions ≥90%.
-    See doc/Fuzz_Coverage.txt for breakdown.
+    See docs/Fuzz_Coverage.txt for breakdown.
 
   - Differential oracle harness (fuzz/fuzz_spill_oracle.c) catches
     correctness bugs in the spill buffer logic, not just crashes.  This
@@ -204,7 +204,7 @@ What the reviewer is asked to assess that the above does NOT cover:
   - The Infinite Noise TRNG hardware design.  The provider assumes the
     USB device is the genuine FT240XQ-based INM described in the
     upstream README.  Adversarial-USB scenarios (a malicious device that
-    enumerates as an INM) are noted in doc/ARCHITECTURE.txt as a limit
+    enumerates as an INM) are noted in docs/ARCHITECTURE.txt as a limit
     of trust but are not in the provider's defensive remit.
 
 

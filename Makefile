@@ -4,7 +4,7 @@ RM = rm -f
 SRCDIR  = src
 TESTDIR = test
 CONFDIR = conf
-DOCDIR  = doc
+DOCDIR  = docs
 FUZZ_DIR = fuzz
 
 MANDIR   ?= /usr/share/man

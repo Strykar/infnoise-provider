@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before opening, please check doc/ARCHITECTURE.txt and
-        doc/CONTRIBUTING.txt — the scope of this project is
+        Before opening, please check docs/ARCHITECTURE.txt and
+        docs/CONTRIBUTING.txt — the scope of this project is
         deliberately narrow.  Proposals that fall outside scope will
         be closed with an explanation.
 
@@ -37,5 +37,5 @@ body:
     attributes:
       label: Trade-offs and invariants
       description: |
-        Does this affect any security invariant in doc/ARCHITECTURE.txt §5?
+        Does this affect any security invariant in docs/ARCHITECTURE.txt §5?
         Does it change the dispatch surface or thread-safety model?

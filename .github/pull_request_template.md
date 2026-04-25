@@ -1,5 +1,5 @@
 <!--
-Thank you for contributing.  Please read doc/CONTRIBUTING.txt before
+Thank you for contributing.  Please read docs/CONTRIBUTING.txt before
 opening a PR.  Remove sections that do not apply.
 -->
 
@@ -29,14 +29,14 @@ opening a PR.  Remove sections that do not apply.
 - [ ] `make lint` introduces no new findings.
 - [ ] Appropriate soak run completed (`test-soak-short` minimum,
       `test-soak` for dispatch / security-invariant changes).
-- [ ] doc/ARCHITECTURE.txt updated if design changes.
+- [ ] docs/ARCHITECTURE.txt updated if design changes.
 - [ ] README.md updated if user-visible behavior changes.
 - [ ] Commits rebased onto current master; no merge commits.
 - [ ] New source files carry an SPDX-License-Identifier header.
 
 ## Security invariants
 
-<!-- Does this patch touch any invariant from doc/ARCHITECTURE.txt §5?
+<!-- Does this patch touch any invariant from docs/ARCHITECTURE.txt §5?
      If so, explain how the invariant is preserved. -->
 
 ## Notes for reviewers

@@ -14,7 +14,7 @@ Infinite Noise TRNG over USB.  Contributions are welcome that:
 
   - Fix bugs in the provider implementation or test harness.
   - Improve portability to other OpenSSL-3.x-supporting platforms.
-  - Strengthen the security invariants documented in doc/ARCHITECTURE.txt.
+  - Strengthen the security invariants documented in docs/ARCHITECTURE.txt.
   - Expand test coverage (especially adversarial / fuzzing / sanitizer).
   - Improve documentation clarity and accuracy.
 
@@ -33,7 +33,7 @@ Out of scope, as a deliberate choice:
 For anything larger than a typo fix, open an issue first.  Describe the
 problem, the proposed change, and any trade-offs.  This avoids wasted
 effort on patches that turn out to conflict with design decisions
-captured in doc/ARCHITECTURE.txt.
+captured in docs/ARCHITECTURE.txt.
 
 For security-sensitive reports, see SECURITY.md — do not open a public
 issue.
@@ -112,7 +112,7 @@ Memory safety).
 ----------------------
 
 These are non-negotiable.  A patch that relaxes any of them will be
-rejected regardless of other merits.  See doc/ARCHITECTURE.txt §5 for
+rejected regardless of other merits.  See docs/ARCHITECTURE.txt §5 for
 rationale.
 
   - No stale entropy in memory.
@@ -137,7 +137,7 @@ state and signed-int32_t readData.  Build will fail with a clear
 #error if linked against unpatched waywardgeek/infnoise.
 
 CI workflows (build / sanitizers / cifuzz / codeql / coverity) clone
-the patched fork branch directly.  See doc/ARCHITECTURE.txt §6.
+the patched fork branch directly.  See docs/ARCHITECTURE.txt §6.
 
 
 7. COMMIT HYGIENE
@@ -171,7 +171,7 @@ Before opening a PR, confirm:
   [ ] `make fuzz FUZZ_CC=clang` builds; each harness 60 s clean.
   [ ] `make lint` introduces no new findings.
   [ ] Soak test run completed (duration appropriate to change scope).
-  [ ] doc/ARCHITECTURE.txt updated if design changes.
+  [ ] docs/ARCHITECTURE.txt updated if design changes.
   [ ] README.md updated if user-visible behavior changes.
   [ ] Commits squashed / rebased as appropriate.
   [ ] Copyright header present on any new source file, bearing your

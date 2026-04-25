@@ -11,7 +11,7 @@ openssl.cnf, every OpenSSL cryptographic operation (key generation,
 signatures, TLS handshakes) is seeded with hardware entropy.
 
   Provider:    src/infnoise_prov.c    (OSSL_OP_RAND implementation)
-  Tests:       test/test_infnoise_prov.c    (27 tests, 5 layers)
+  Tests:       test/test_infnoise_prov.c    (28 tests, 5 layers)
   Config:      conf/infnoise-provider.cnf   (loads provider + sets seed)
 
 A legacy ENGINE-API implementation by Tim Skipper exists at
@@ -196,7 +196,7 @@ checksec on the produced infnoise.so reports:
 8. TEST COVERAGE
 ----------------
 
-27 tests across 5 layers.  All pass under:
+28 tests across 5 layers.  All pass under:
   - Normal build (-O2, hardened)
   - AddressSanitizer (detect_leaks=1, abort_on_error=1)
   - UndefinedBehaviorSanitizer (halt_on_error=1)
@@ -248,10 +248,10 @@ Or append the provider/random sections to the system openssl.cnf.
 ---------
 
   src/infnoise_prov.c             Provider implementation
-  test/test_infnoise_prov.c       Test harness (27 tests)
+  test/test_infnoise_prov.c       Test harness (28 tests)
   conf/infnoise-provider.cnf      OpenSSL configuration
   conf/openssl.supp               Valgrind suppressions
-  doc/ARCHITECTURE.txt            This document
+  docs/ARCHITECTURE.txt            This document
   Makefile                        Build system with hardening, sanitizers, lint
   README.md                       Build/test/usage instructions
   LICENSE                         GPL-2.0-or-later
