@@ -11,7 +11,7 @@ openssl.cnf, every OpenSSL cryptographic operation (key generation,
 signatures, TLS handshakes) is seeded with hardware entropy.
 
   Provider:    src/infnoise_prov.c    (OSSL_OP_RAND implementation)
-  Tests:       test/test_infnoise_prov.c    (28 tests, 5 layers)
+  Tests:       tests/test_infnoise_prov.c    (28 tests, 5 layers)
   Config:      conf/infnoise-provider.cnf   (loads provider + sets seed)
 
 A legacy ENGINE-API implementation by Tim Skipper exists at
@@ -200,7 +200,7 @@ The provider is exercised by three independent test binaries plus a
 five-target libFuzzer harness suite, all clean under the sanitiser
 matrix (ASan / UBSan / TSan / MSan-where-feasible / Valgrind).
 
-Integration harness — test/test_infnoise_prov.c (28 tests, 5 layers):
+Integration harness — tests/test_infnoise_prov.c (28 tests, 5 layers):
 
   Layer 1 — Direct libinfnoise hardware (4)
     hw_detect, hw_init_deinit, hw_read_raw, hw_read_multiple
@@ -230,13 +230,13 @@ Integration harness — test/test_infnoise_prov.c (28 tests, 5 layers):
     mem_boundary_generate (spill buffer boundary sizes),
     mem_zero_length_generate
 
-Concurrency stress — test/test_infnoise_tsan.c (make test-tsan):
+Concurrency stress — tests/test_infnoise_tsan.c (make test-tsan):
 
   Two scenarios under -fsanitize=thread, each 4 threads × 20 000
   iterations: shared context with provider locking, and per-thread
   contexts.  No data races detected.
 
-Allocator-failure injection — test/test_infnoise_alloc.c (make test-alloc):
+Allocator-failure injection — tests/test_infnoise_alloc.c (make test-alloc):
 
   CRYPTO_set_mem_functions hooks fail the Nth allocation; four
   provider alloc sites are driven and verified to return the
@@ -260,7 +260,7 @@ libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
   inputs that triggered fixed bugs live under fuzz/regressions/ and
   are replayed by CIFuzz on every PR.
 
-Endurance run — test/test_infnoise_soak.c (make test-soak):
+Endurance run — tests/test_infnoise_soak.c (make test-soak):
 
   24-hour drive of EVP_RAND through the provider; tracks RSS for
   leaks, dumps rolling samples for offline analysis with
@@ -287,7 +287,7 @@ Or append the provider/random sections to the system openssl.cnf.
 ---------
 
   src/infnoise_prov.c             Provider implementation
-  test/test_infnoise_prov.c       Test harness (28 tests)
+  tests/test_infnoise_prov.c       Test harness (28 tests)
   conf/infnoise-provider.cnf      OpenSSL configuration
   conf/openssl.supp               Valgrind suppressions
   docs/ARCHITECTURE.txt            This document

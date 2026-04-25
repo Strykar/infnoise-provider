@@ -72,7 +72,7 @@ for hardware tests; pure-API tests run without the device.
 3. SOAK TEST NOTES
 ------------------
 
-test/test_infnoise_soak.c drives EVP_RAND through every spill-buffer phase,
+tests/test_infnoise_soak.c drives EVP_RAND through every spill-buffer phase,
 cycles instantiate / uninstantiate to surface lifecycle leaks, tracks RSS
 across the run, and dumps rolling samples suitable for offline analysis by
 ent, rngtest, or dieharder.

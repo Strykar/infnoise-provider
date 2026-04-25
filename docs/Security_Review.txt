@@ -129,7 +129,7 @@ OpenSSL via OSSL_PROVIDER_load.  It links libcrypto, libftdi1, libinfnoise.
   indicator and bailing out.  Inline `// SECURITY: reviewed 2026-04-25`
   comments record the maintainer's audit conclusion.
 
-  test/test_infnoise_alloc.c installs CRYPTO_set_mem_functions hooks
+  tests/test_infnoise_alloc.c installs CRYPTO_set_mem_functions hooks
   that fail on demand and drives each site, verifying clean failure.
 
   Reviewer:

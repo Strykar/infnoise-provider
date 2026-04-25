@@ -103,7 +103,7 @@ For the dispatch surface or security invariants, the full 24-hour
 endurance run (make test-soak) is expected before merge.
 
 If a patch introduces new test cases, the new tests must be visible in
-test/test_infnoise_prov.c, numbered consistently, and assigned to the
+tests/test_infnoise_prov.c, numbered consistently, and assigned to the
 correct layer (Hardware / Provider API / Integration / Statistical /
 Memory safety).
 

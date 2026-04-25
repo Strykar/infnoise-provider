@@ -193,10 +193,10 @@ sudo usermod -aG plugdev $USER
 ```
 infnoise-provider/
   src/infnoise_prov.c        Provider implementation
-  test/test_infnoise_prov.c  Test harness (28 tests)
-  test/test_infnoise_tsan.c  ThreadSanitizer concurrency stress (make test-tsan)
-  test/test_infnoise_alloc.c Allocator-failure injection test (make test-alloc)
-  test/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
+  tests/test_infnoise_prov.c  Test harness (28 tests)
+  tests/test_infnoise_tsan.c  ThreadSanitizer concurrency stress (make test-tsan)
+  tests/test_infnoise_alloc.c Allocator-failure injection test (make test-alloc)
+  tests/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
                              spill-buffer phase, cycles instantiate/
                              uninstantiate, tracks RSS for leaks, dumps
                              rolling samples for ent/rngtest/dieharder

@@ -2,7 +2,7 @@ CC = gcc
 RM = rm -f
 
 SRCDIR  = src
-TESTDIR = test
+TESTDIR = tests
 CONFDIR = conf
 DOCDIR  = docs
 FUZZ_DIR = fuzz
