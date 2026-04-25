@@ -28,7 +28,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 ## Requirements
 
 - **OpenSSL 3.x** (tested with 3.4+)
-- **libinfnoise** and its dependency **libftdi1** (from the [infnoise](https://github.com/waywardgeek/infnoise) project)
+- **libinfnoise (patched fork)** and its dependency **libftdi1**.  The provider requires a libinfnoise build whose header defines `INFNOISE_KECCAK_STATE_SIZE` — per-context Keccak/health state and signed-`int32_t` `readData()` return.  The build will fail with a clear `#error` if linked against the unpatched [waywardgeek/infnoise](https://github.com/waywardgeek/infnoise) upstream.
 - **Infinite Noise TRNG** USB device connected
 - **GCC** with C11 support
 - **pkg-config** (used by the Makefile to locate libcrypto and libftdi1)
@@ -198,8 +198,7 @@ Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, 
 
 ## Known limitations
 
-- **Single instance per device.** Only one process can open an FTDI device at a time; the provider serializes its own context via `CRYPTO_RWLOCK`.  If built against a patched libinfnoise that holds state per-context (detected at compile time), the library-level constraint disappears but USB exclusion still applies.
-- **`exit(1)` on health check failure** with unpatched libinfnoise (`>20` sequential identical bits).  Upstream behavior the provider cannot intercept.  Fixed upstream in [waywardgeek/infnoise@527ff2a](https://github.com/waywardgeek/infnoise/commit/527ff2a) (Matthew Brooks).
+- **One open handle per physical device.** FTDI USB exclusion applies regardless of provider configuration; multiple `EVP_RAND_CTX` instances against the same TRNG would race for the device.  The provider serialises a single shared context via `CRYPTO_RWLOCK`.
 - **Throughput ~50 KB/s** (USB bulk transfer speed bound).  Suitable for seeding DRBGs and key generation; not suitable for bulk random data production.
 
 ## Contributing

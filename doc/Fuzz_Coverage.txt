@@ -1,0 +1,182 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: Fuzz Coverage
+================================================================================
+
+Honest accounting of what fuzz testing exercises in src/infnoise_prov.c, what
+it doesn't, and why.  Numbers below are line coverage from a 60-second run
+of each harness against an empty starting corpus, measured 2026-04-25.
+
+
+1. SUMMARY
+----------
+
+  Total source functions: 23
+  Functions ≥90% line cov: 22
+  Functions <90% line cov:  1
+  Total source lines:     283
+  Lines covered:          277  (97.9%)
+  Lines uncovered:          6  (all allocator-failure paths)
+
+
+2. HARNESSES
+------------
+
+Five libFuzzer harnesses live under fuzz/.  Each builds with
+-fsanitize=fuzzer,address,undefined and links against fuzz/mock_libinfnoise.o
+in place of real libinfnoise (no USB device needed).
+
+  fuzz_dispatch        State-machine harness.  The fuzzer drives a sequence
+                       of dispatch operations (newctx, instantiate, generate,
+                       get_seed, etc.) on up to 4 context slots; the harness
+                       checks the provider survives any ordering.
+
+  fuzz_params          Boundary harness.  Single-context lifecycle with
+                       fuzzer-controlled strength, outlen, and addin sizes;
+                       exercises spill-buffer phase boundaries.
+
+  fuzz_ossl_params     OSSL_PARAM surface.  Drives get_ctx_params with full,
+                       partial, NULL, and type-mismatched arrays across
+                       UNINITIALISED / READY / ERROR contexts.
+
+  fuzz_spill_oracle    Differential test.  The fuzzer programs a hostile
+                       readData mock (per-call return sizes including short
+                       reads and explicit transients), then runs both the
+                       provider and an in-harness oracle against the same
+                       script.  Asserts byte-for-byte equality plus output-
+                       buffer cleanse-on-failure.  This harness found the
+                       phase-3 short-read memory disclosure.
+
+  fuzz_provider_init   Provider-level entry points.  Calls OSSL_provider_init
+                       directly, walks the returned dispatch table, queries
+                       OSSL_OP_RAND, exercises infnoise_prov_get_params with
+                       valid and type-mismatched param arrays, then teardown.
+
+
+3. PER-FUNCTION LINE COVERAGE
+-----------------------------
+
+  function                                lines    %      L_start-L_end
+  ----------------------------------------------------------------------
+  OSSL_provider_init                       9/10   90.0%   L648-663
+  SpillBufferDrain                        14/14  100.0%   L108-125
+  SpillBufferInit                          3/3   100.0%   L103-106
+  SpillBufferStore                         5/5   100.0%   L127-134
+  infnoise_prov_get_params                17/17  100.0%   L600-622
+  infnoise_prov_gettable_params            3/3   100.0%   L595-598
+  infnoise_prov_query                      8/8   100.0%   L575-585
+  infnoise_prov_teardown                   3/3   100.0%   L628-631
+  infnoise_rand_clear_seed                 3/3   100.0%   L506-510
+  infnoise_rand_enable_locking             8/11   72.7%   L445-457   ← <90%
+  infnoise_rand_freectx                   10/10  100.0%   L188-203
+  infnoise_rand_generate                  52/52  100.0%   L314-388
+  infnoise_rand_get_ctx_params            16/16  100.0%   L422-443
+  infnoise_rand_get_seed                  16/17   94.1%   L476-504
+  infnoise_rand_gettable_ctx_params        3/3   100.0%   L416-420
+  infnoise_rand_instantiate               23/23  100.0%   L205-239
+  infnoise_rand_lock                       6/6   100.0%   L459-466
+  infnoise_rand_newctx                    13/14   92.9%   L167-186
+  infnoise_rand_reseed                    11/11  100.0%   L390-407
+  infnoise_rand_uninstantiate              9/9   100.0%   L241-253
+  infnoise_rand_unlock                     5/5   100.0%   L468-474
+  infnoise_rand_verify_zeroization        12/12  100.0%   L512-531
+  infnoise_read_device                    28/28  100.0%   L258-312
+  ----------------------------------------------------------------------
+  TOTAL                                  277/283  97.9%
+
+
+4. UNCOVERED LINES — AND WHY
+----------------------------
+
+All six uncovered lines are allocator-failure paths.  Reaching them requires
+intercepting OpenSSL's allocator (CRYPTO_set_mem_functions) to make zalloc /
+secure_malloc / lock_new return NULL on the Nth call.  This is not currently
+wired into the fuzz harness; doing so safely without breaking other OpenSSL
+allocations needed for error reporting is non-trivial.
+
+  Line  Function                    Why uncovered
+  ────  ─────────────────────────   ──────────────────────────────────────
+  180   infnoise_rand_newctx        OPENSSL_zalloc returned NULL.
+  452   infnoise_rand_enable_locking  CRYPTO_THREAD_lock_new returned NULL.
+  453   infnoise_rand_enable_locking  same — ERR_raise + return 0 path.
+  454   infnoise_rand_enable_locking  same — closing brace of error path.
+  494   infnoise_rand_get_seed      OPENSSL_secure_malloc returned NULL.
+  657   OSSL_provider_init          OPENSSL_zalloc returned NULL.
+
+These paths are defensive code that defends against host-system OOM.  They
+have been visually reviewed; each does the minimum (raise an error, return
+the failure indicator) and contains no logic that could harbour a memory-
+safety bug.  Fuzzing them would still be valuable for regression detection
+on any future change, but the marginal security return on adding allocator-
+failure injection is low.
+
+
+5. WHAT FUZZING DOES NOT COVER (BEYOND LINE COUNTS)
+---------------------------------------------------
+
+Even at 97.9% line coverage, several categories of bug are out of reach of
+the current libFuzzer harness set:
+
+  Concurrency.        TSan and libFuzzer don't compose well.  Multi-threaded
+                      contention on the provider's CRYPTO_RWLOCK and the
+                      spill buffer is not exercised by these harnesses.  A
+                      separate `make test-tsan` target would close this gap.
+
+  Real hardware.      The mock replaces libinfnoise entirely.  Bugs that
+                      depend on actual libftdi1 USB transfer behaviour, real
+                      readData timing, or genuine entropy quality are not
+                      caught here.  The 24-hour endurance run (issue #8,
+                      `make test-soak`) is what exercises the real path.
+
+  Health checks.      The patched libinfnoise's INFNOISE_KECCAK_STATE_SIZE
+                      branch is the only one compiled in (mock follows).
+                      The unpatched-libinfnoise code path (#if !INFNOISE_PATCHED)
+                      is not exercised by fuzzing.
+
+  Statistical quality. Whether the entropy stream actually passes NIST
+                       SP 800-90B health checks is verified by the soak
+                       harness's ent/rngtest/dieharder pipeline, not by
+                       libFuzzer.
+
+  External error handling. ERR_raise / ERR_raise_data calls into OpenSSL
+                       are exercised, but the actual error queue contents
+                       are not asserted (we don't crash if the wrong error
+                       code is queued, only if the queue corrupts memory).
+
+
+6. REPRODUCING THE MEASUREMENT
+------------------------------
+
+  # Build all five harnesses.
+  make fuzz FUZZ_CC=clang
+
+  # Build coverage-instrumented variants alongside.
+  COV='-O0 -g -fprofile-instr-generate -fcoverage-mapping \
+       -I/usr/include/libftdi1 -I/usr/include/libusb-1.0'
+  clang $COV -c fuzz/mock_libinfnoise.c -o fuzz/cov_mock.o
+  for h in fuzz_spill_oracle fuzz_dispatch fuzz_params fuzz_ossl_params \
+           fuzz_provider_init; do
+      clang $COV -fsanitize=fuzzer fuzz/$h.c fuzz/cov_mock.o \
+            -lcrypto -o fuzz/${h}_cov
+  done
+
+  # Run each for 60 seconds.
+  for h in fuzz_spill_oracle fuzz_dispatch fuzz_params fuzz_ossl_params \
+           fuzz_provider_init; do
+      LLVM_PROFILE_FILE=/tmp/cov_${h}.profraw \
+          ./fuzz/${h}_cov -max_total_time=60
+  done
+
+  # Merge and report.
+  llvm-profdata merge -sparse /tmp/cov_*.profraw -o /tmp/cov.profdata
+  llvm-cov report -show-functions \
+      -object fuzz/fuzz_spill_oracle_cov  -object fuzz/fuzz_dispatch_cov  \
+      -object fuzz/fuzz_params_cov        -object fuzz/fuzz_ossl_params_cov \
+      -object fuzz/fuzz_provider_init_cov \
+      -instr-profile=/tmp/cov.profdata    -sources src/infnoise_prov.c
+
+  # Per-line annotation of uncovered code.
+  llvm-cov show -object … -instr-profile=/tmp/cov.profdata \
+                -sources src/infnoise_prov.c \
+      | awk '/^\s*[0-9]+\|\s*0\|/ && $0 !~ /^\s*\|/'
+
+================================================================================

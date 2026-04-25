@@ -15,12 +15,14 @@
 
 #include <libinfnoise.h>
 
-// Detect patched vs unpatched libinfnoise at compile time.
-// The patched header defines INFNOISE_KECCAK_STATE_SIZE (absent in upstream).
-#ifdef INFNOISE_KECCAK_STATE_SIZE
-#define INFNOISE_PATCHED 1
-#else
-#define INFNOISE_PATCHED 0
+// This provider requires the patched libinfnoise fork: per-context Keccak and
+// health-check state (no globals), and signed int32_t readData() return value
+// (< 0 fatal, 0 transient, > 0 bytes).  The marker is INFNOISE_KECCAK_STATE_SIZE
+// which the patched header defines and the upstream waywardgeek/infnoise does
+// not.  Building against unpatched libinfnoise is unsupported (global state
+// breaks multi-context use; exit() on health failure breaks error recovery).
+#ifndef INFNOISE_KECCAK_STATE_SIZE
+#  error "libinfnoise must be the patched fork (INFNOISE_KECCAK_STATE_SIZE undefined)"
 #endif
 
 #include <openssl/core.h>
@@ -82,11 +84,11 @@ static const bool kDebug = false;
 // BUFLEN (512) is the USB buffer size, NOT the readData output size.
 // BATCH_SIZE is the actual readData output size we must handle.
 //
-// NOTE: with patched libinfnoise (INFNOISE_PATCHED=1), state is per-context.
-// With unpatched libinfnoise, global Keccak and health-check state means
-// only one provider context may safely be active at a time.
-// In both cases, FTDI USB exclusion limits to one open handle, and
-// CRYPTO_RWLOCK serializes concurrent OpenSSL threads into the library.
+// libinfnoise (the patched fork required by this provider) holds Keccak and
+// health-check state per-context, so multiple PROV_INFNOISE contexts can
+// coexist safely at the library level.  FTDI USB exclusion still limits
+// open handles to one per physical device, and CRYPTO_RWLOCK serialises
+// concurrent OpenSSL threads sharing a single context.
 #define BATCH_SIZE 64u  // multiplier=2, keccak=true: 2*256/8 = 64
 
 // When readData returns BATCH_SIZE bytes but the caller needs fewer,
@@ -177,7 +179,7 @@ static void *infnoise_rand_newctx(void *provctx, void *parent,
 
     ctx = OPENSSL_zalloc(sizeof(*ctx));
     if (ctx == NULL)
-        return NULL;
+        return NULL;   // SECURITY: reviewed 2026-04-25 — no partial state.
 
     ctx->provctx = provctx;
     ctx->state = EVP_RAND_STATE_UNINITIALISED;
@@ -261,8 +263,8 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
     int zero_reads = 0;
 
     for (;;) {
-#if INFNOISE_PATCHED
-        // Patched libinfnoise: signed return (< 0 = error, 0 = transient, > 0 = bytes)
+        // Patched libinfnoise: signed rc — < 0 fatal, 0 transient, > 0 bytes.
+        // The fatal rc value itself is the infnoise_error_t code.
         int32_t rc = readData(&ctx->trng_context, buf,
                               !kKeccak, kInfnoiseMultiplier);
 
@@ -272,7 +274,7 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
                            ctx->trng_context.message
                                ? ctx->trng_context.message
                                : "unknown",
-                           (int)ctx->trng_context.last_error);
+                           (int)rc);
             OPENSSL_cleanse(buf, BATCH_SIZE);
             ctx->state = EVP_RAND_STATE_ERROR;
             return 0;
@@ -280,25 +282,6 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
 
         if (rc > 0)
             return (uint32_t)rc;
-#else
-        // Unpatched libinfnoise: unsigned return, errorFlag for errors
-        uint32_t n = readData(&ctx->trng_context, buf,
-                              !kKeccak, kInfnoiseMultiplier);
-
-        if (ctx->trng_context.errorFlag) {
-            ERR_raise_data(ERR_LIB_RAND, RAND_R_ERROR_RETRIEVING_ENTROPY,
-                           "readData: %s",
-                           ctx->trng_context.message
-                               ? ctx->trng_context.message
-                               : "unknown");
-            OPENSSL_cleanse(buf, BATCH_SIZE);
-            ctx->state = EVP_RAND_STATE_ERROR;
-            return 0;
-        }
-
-        if (n > 0)
-            return n;
-#endif
 
         // readData returned 0: transient (timing or entropy off-target).
         if (++zero_reads >= INFNOISE_MAX_ZERO_READS) {
@@ -341,6 +324,12 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
         return 0;
     }
 
+    // Zero-length request is trivially successful and must not touch out;
+    // callers may legitimately pass out == NULL with outlen == 0, and any
+    // pointer arithmetic on a null pointer (even +0) is undefined behaviour.
+    if (outlen == 0)
+        return 1;
+
     unsigned char *w_ptr = out;
     size_t remaining = outlen;
 
@@ -361,9 +350,11 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
         remaining -= n;
     }
 
-    // Phase 3: for the tail (< BATCH_SIZE), read a full batch, give
-    // the caller what they need, keep the rest in the spill buffer.
-    if (remaining > 0) {
+    // Phase 3: tail (< BATCH_SIZE).  Read until the request is satisfied,
+    // looping on short reads — readData's contract guarantees only "> 0
+    // bytes written," not BATCH_SIZE bytes.  When a read overshoots
+    // remaining, the surplus goes to the spill buffer for the next call.
+    while (remaining > 0) {
         uint8_t batch[BATCH_SIZE];
         uint32_t n = infnoise_read_device(ctx, batch);
         if (n == 0) {
@@ -371,11 +362,11 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
             return 0;
         }
 
-        // Give the caller their remaining bytes.
         size_t give = remaining < n ? remaining : n;
         memcpy(w_ptr, batch, give);
+        w_ptr     += give;
+        remaining -= give;
 
-        // Stash the leftovers for the next call.
         if (give < n)
             SpillBufferStore(&ctx->spill, batch + give, n - give);
 
@@ -440,6 +431,10 @@ static int infnoise_rand_get_ctx_params(void *vctx, OSSL_PARAM params[])
     return 1;
 }
 
+// Caller MUST check the return value before relying on subsequent lock()/
+// unlock() to actually serialise: when this returns 0, lock() and unlock()
+// become silent no-ops on the same context (the ctx->lock == NULL guards
+// in those functions), so unsynchronised concurrent use would be a race.
 static int infnoise_rand_enable_locking(void *vctx)
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
@@ -447,6 +442,8 @@ static int infnoise_rand_enable_locking(void *vctx)
     if (ctx != NULL && ctx->lock == NULL) {
         ctx->lock = CRYPTO_THREAD_lock_new();
         if (ctx->lock == NULL) {
+            // SECURITY: reviewed 2026-04-25 — ctx->lock stays NULL,
+            // caller can retry on next call without leak.
             ERR_raise(ERR_LIB_PROV, RAND_R_FAILED_TO_CREATE_LOCK);
             return 0;
         }
@@ -489,7 +486,7 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
 
     unsigned char *buf = OPENSSL_secure_malloc(len);
     if (buf == NULL)
-        return 0;
+        return 0;   // SECURITY: reviewed 2026-04-25 — *pout untouched.
 
     if (!infnoise_rand_generate(vctx, buf, len, 0, prediction_resistance,
                                 adin, adin_len)) {
@@ -650,9 +647,14 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
 {
     INFNOISE_PROV_CTX *ctx;
 
+    // Defense-in-depth: clear caller's out parameters before any work, so a
+    // misbehaving loader that ignores our return value can't deref garbage.
+    *provctx = NULL;
+    *out     = NULL;
+
     ctx = OPENSSL_zalloc(sizeof(*ctx));
     if (ctx == NULL)
-        return 0;
+        return 0;   // SECURITY: reviewed 2026-04-25 — outs cleared above.
 
     ctx->handle = handle;
     *provctx = ctx;

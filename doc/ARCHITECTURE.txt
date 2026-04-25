@@ -80,17 +80,15 @@ avoids a memcpy for large requests that are multiples of BATCH_SIZE.
 4. THREAD SAFETY
 ----------------
 
-libinfnoise is not thread-safe: it holds per-connection state that, in
-the unpatched library, is file-scope.  A single PROV_INFNOISE context is
-serialized via CRYPTO_RWLOCK (allocated on enable_locking).  OpenSSL
-calls lock()/unlock() around dispatch entries that touch shared state.
+libinfnoise (the patched fork required by this provider) holds Keccak
+and health-check state per-context, so multi-context concurrent use is
+limited only by FTDI USB exclusion — one open handle per physical
+device.  A single PROV_INFNOISE shared between threads is serialised
+via CRYPTO_RWLOCK (allocated on enable_locking); the caller takes
+lock()/unlock() around dispatch entries that touch shared state.
 
-Multi-context concurrent use is additionally constrained by FTDI USB
-exclusion — only one process can hold the device open at a time.
-
-When built against a patched libinfnoise that holds state in a
-caller-provided struct (see section 6), the library-level constraint
-disappears; the RWLOCK becomes the only serialization requirement.
+The TSan target (make test-tsan) stresses both topologies: 4 threads
+sharing one context with locking, and 4 threads each owning a context.
 
 
 5. SECURITY INVARIANTS
@@ -132,33 +130,35 @@ disappears; the RWLOCK becomes the only serialization requirement.
     256-bit security strength.
 
 
-6. PATCHED LIBINFNOISE DETECTION
---------------------------------
+6. LIBINFNOISE REQUIREMENTS
+---------------------------
 
 Upstream libinfnoise (waywardgeek/infnoise) holds its Keccak sponge and
-health-checker state in 25 file-scope static variables.  A patched
-version exists on a downstream branch that moves these into a
-caller-provided struct infnoise_context; it also adds an error-code
-enum and changes readData() to return a signed int32.
+health-checker state in file-scope static variables, and readData()
+returns uint32_t with errors signalled via context->errorFlag.  Both
+properties prevent safe multi-context use and proper fatal-vs-transient
+error discrimination.
 
-The provider supports both at compile time, chosen automatically by
-probing the installed libinfnoise.h for INFNOISE_KECCAK_STATE_SIZE:
+This provider hard-requires the patched fork (Strykar/infnoise on the
+libinfnoise-error-codes branch as of 2026-04-25), which:
 
-  #ifdef INFNOISE_KECCAK_STATE_SIZE
-    #define INFNOISE_PATCHED 1
-  #else
-    #define INFNOISE_PATCHED 0
+  * Moves Keccak / health-check state into the caller-provided
+    struct infnoise_context (per-context isolation).
+  * Adds the infnoise_error_t enum.
+  * Changes readData() return to int32_t — rc < 0 fatal (the value is
+    the infnoise_error_t code), rc == 0 transient (retry), rc > 0 is
+    bytes written.
+
+The required marker is INFNOISE_KECCAK_STATE_SIZE.  src/infnoise_prov.c
+guards the build:
+
+  #ifndef INFNOISE_KECCAK_STATE_SIZE
+  #  error "libinfnoise must be the patched fork ..."
   #endif
 
-  * Patched path: readData returns int32_t.  rc < 0 is fatal (logs the
-    infnoise_error_t code via ERR_raise_data); rc == 0 is transient
-    (retry up to the bound); rc > 0 is bytes written.
-
-  * Unpatched path: readData returns uint32_t and sets errorFlag in
-    the context.  The provider cannot distinguish fatal from transient
-    and treats any errorFlag as fatal after the retry limit.
-
-Both paths compile clean with -Wall -Wextra.
+The compile-time bridge that previously supported both libraries was
+removed; see commit history.  CI (build / sanitizers / cifuzz / codeql /
+coverity) clones Strykar/infnoise:libinfnoise-error-codes.
 
 
 7. BUILD HARDENING

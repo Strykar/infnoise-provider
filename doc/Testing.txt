@@ -21,8 +21,26 @@ for hardware tests; pure-API tests run without the device.
   # Valgrind (requires glibc debug symbols on Arch)
   make test-valgrind
 
+  # ThreadSanitizer — concurrent EVP_RAND_CTX use across 4 threads,
+  # 2 scenarios (shared ctx with locking, per-thread ctxs).
+  make test-tsan
+
+  # Allocator-failure injection — CRYPTO_set_mem_functions hooks that
+  # fail on demand to drive the 6 alloc-failure paths in the provider.
+  make test-alloc
+
   # Static analysis (cppcheck + gcc -fanalyzer)
   make lint
+
+  # libFuzzer harness suite — 5 targets under fuzz/.  Builds with
+  # -fsanitize=fuzzer,address,undefined; uses fuzz/mock_libinfnoise.c
+  # so no USB device is needed.
+  make fuzz FUZZ_CC=clang
+  ./fuzz/fuzz_spill_oracle  -max_total_time=60
+  ./fuzz/fuzz_dispatch      -max_total_time=60
+  ./fuzz/fuzz_params        -max_total_time=60
+  ./fuzz/fuzz_ossl_params   -max_total_time=60
+  ./fuzz/fuzz_provider_init -max_total_time=60
 
   # Long-duration soak through the provider (1 hour default, overridable)
   make test-soak-short                     # 1 h

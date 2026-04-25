@@ -1,10 +1,11 @@
 CC = gcc
 RM = rm -f
 
-SRCDIR = src
+SRCDIR  = src
 TESTDIR = test
 CONFDIR = conf
 DOCDIR  = doc
+FUZZ_DIR = fuzz
 
 MANDIR   ?= /usr/share/man
 MAN7_SRC  = $(DOCDIR)/OSSL_PROVIDER-infnoise.7.md
@@ -40,7 +41,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install install-man man test test-asan test-ubsan test-valgrind test-soak test-soak-short plot-soak lint
+.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean
 
 all: $(TARGET_LIB)
 
@@ -94,6 +95,40 @@ test-ubsan: $(TESTDIR)/test_infnoise_prov.c $(SRCS)
 	    -o $(TARGET_LIB) $(SRCS) $(SAN_LIBS)
 	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
 	    OPENSSL_MODULES=$(MODULESDIR) ./$(TEST_BIN)-ubsan
+
+# ThreadSanitizer: detects data races on the provider's per-context state
+# under concurrent EVP_RAND_CTX use.  Uses the fuzz mock libinfnoise so no
+# USB device is needed.  TSan and libFuzzer don't compose, so this is its
+# own binary built independently of the fuzz suite.
+TSAN_CFLAGS = -g -O1 -Wall -Wextra $(PKG_CFLAGS) -fno-omit-frame-pointer \
+              -fsanitize=thread -pthread
+TSAN_LIBS   = $(shell pkg-config --libs libcrypto) -pthread
+test-tsan: $(TESTDIR)/test_infnoise_tsan.c $(FUZZ_DIR)/mock_libinfnoise.c \
+           $(SRCS)
+	$(CC) $(TSAN_CFLAGS) -c $(FUZZ_DIR)/mock_libinfnoise.c \
+	    -o $(FUZZ_DIR)/mock_libinfnoise.tsan.o
+	$(CC) $(TSAN_CFLAGS) -o test_infnoise_tsan \
+	    $(TESTDIR)/test_infnoise_tsan.c \
+	    $(FUZZ_DIR)/mock_libinfnoise.tsan.o $(TSAN_LIBS)
+	TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1 \
+	    ./test_infnoise_tsan
+
+# Allocator-failure injection.  Installs CRYPTO_set_mem_functions wrapper
+# that fails on a chosen iteration count, drives each provider alloc site,
+# and verifies the documented failure indicator + clean state.  Catches
+# regressions in the alloc-path NULL checks (Tier A audit verifies these
+# today; this test guards against future drift).
+ALLOC_CFLAGS = -g -O1 -Wall -Wextra $(PKG_CFLAGS) -fno-omit-frame-pointer \
+               -fsanitize=address,undefined
+ALLOC_LIBS   = $(shell pkg-config --libs libcrypto)
+test-alloc: $(TESTDIR)/test_infnoise_alloc.c $(FUZZ_DIR)/mock_libinfnoise.c \
+            $(SRCS)
+	$(CC) $(ALLOC_CFLAGS) -c $(FUZZ_DIR)/mock_libinfnoise.c \
+	    -o $(FUZZ_DIR)/mock_libinfnoise.alloc.o
+	$(CC) $(ALLOC_CFLAGS) -o test_infnoise_alloc \
+	    $(TESTDIR)/test_infnoise_alloc.c \
+	    $(FUZZ_DIR)/mock_libinfnoise.alloc.o $(ALLOC_LIBS)
+	./test_infnoise_alloc
 
 # Valgrind: detects uninitialised reads, invalid accesses, leaks.
 # Linux note: valgrind requires glibc debug symbols.  Either:
@@ -198,3 +233,42 @@ clean:
 	-$(RM) $(SRCDIR)/*.o $(TESTDIR)/*.o
 	-$(RM) core core.*
 	-$(RM) $(MAN7_OUT)
+
+################################
+# Fuzzing (requires clang + compiler-rt for -fsanitize=fuzzer)
+################################
+
+FUZZ_CC  ?= clang
+
+# Compile-time flags: same headers as the main build, but no hardening that
+# conflicts with sanitiser instrumentation (-fstack-protector-strong and
+# -D_FORTIFY_SOURCE can suppress fuzzer-induced crashes that we want to see).
+FUZZ_CFLAGS = -g -O1 -Wall -Wextra \
+              $(shell pkg-config --cflags libcrypto libftdi1) \
+              -fno-omit-frame-pointer \
+              -fsanitize=fuzzer,address,undefined
+
+# Link: libcrypto only.  The mock object provides the infnoise symbols;
+# real libftdi1 and libinfnoise are intentionally excluded so no USB
+# code runs during fuzzing.
+FUZZ_LDFLAGS = $(shell pkg-config --libs libcrypto) \
+               $(FUZZ_DIR)/mock_libinfnoise.o
+
+FUZZ_TARGETS = $(FUZZ_DIR)/fuzz_params \
+               $(FUZZ_DIR)/fuzz_dispatch \
+               $(FUZZ_DIR)/fuzz_ossl_params \
+               $(FUZZ_DIR)/fuzz_spill_oracle \
+               $(FUZZ_DIR)/fuzz_provider_init
+
+fuzz: $(FUZZ_TARGETS)
+
+$(FUZZ_DIR)/mock_libinfnoise.o: $(FUZZ_DIR)/mock_libinfnoise.c \
+                                 $(FUZZ_DIR)/mock_libinfnoise.h
+	$(FUZZ_CC) $(FUZZ_CFLAGS) -c $< -o $@
+
+$(FUZZ_DIR)/fuzz_%: $(FUZZ_DIR)/fuzz_%.c $(FUZZ_DIR)/mock_libinfnoise.o
+	$(FUZZ_CC) $(FUZZ_CFLAGS) $< $(FUZZ_LDFLAGS) -o $@
+
+fuzz-clean:
+	-$(RM) $(FUZZ_TARGETS) $(FUZZ_DIR)/mock_libinfnoise.o
+	-$(RM) -r $(FUZZ_DIR)/corpus-*

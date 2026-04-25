@@ -79,18 +79,28 @@ checksec with Full RELRO, Stack Canary, SHSTK & IBT, NX, PIE, stripped.
 
 Every patch that touches src/ must be exercised under:
 
-  make test           # 27-test harness
+  make test           # 27-test harness (hardware required)
   make test-asan      # AddressSanitizer clean
   make test-ubsan     # UndefinedBehaviorSanitizer clean
+  make test-tsan      # ThreadSanitizer clean (no hardware needed)
+  make test-alloc     # Allocator-failure paths clean (no hardware)
   make lint           # cppcheck + gcc -fanalyzer, no new findings
 
-Patches that affect the generate() path, spill buffer, or lifecycle
-logic must additionally pass:
+Patches that affect the generate() path, spill buffer, lifecycle, or
+OSSL_PARAM surface must additionally pass:
 
-  make test-soak-short     # 1-hour soak at minimum
+  make fuzz FUZZ_CC=clang
+  ./fuzz/fuzz_spill_oracle  -max_total_time=60   # differential oracle
+  ./fuzz/fuzz_dispatch      -max_total_time=60   # state-machine
+  ./fuzz/fuzz_params        -max_total_time=60   # boundary cases
+  ./fuzz/fuzz_ossl_params   -max_total_time=60   # param surface
+  ./fuzz/fuzz_provider_init -max_total_time=60   # provider entry pts
+  ./fuzz/fuzz_spill_oracle fuzz/regressions/phase3_short_read.bin
 
-For the dispatch surface or security invariants, a 24-hour soak
-(make test-soak) is expected before merge.
+  make test-soak-short      # 1-hour endurance run
+
+For the dispatch surface or security invariants, the full 24-hour
+endurance run (make test-soak) is expected before merge.
 
 If a patch introduces new test cases, the new tests must be visible in
 test/test_infnoise_prov.c, numbered consistently, and assigned to the
@@ -118,15 +128,16 @@ If a proposed change appears to conflict with one of these, the issue
 discussion must resolve the conflict before code review begins.
 
 
-6. LIBINFNOISE COMPATIBILITY
-----------------------------
+6. LIBINFNOISE REQUIREMENTS
+---------------------------
 
-The provider supports two libinfnoise variants, chosen at compile time
-via INFNOISE_KECCAK_STATE_SIZE probing.  Patches must preserve both
-code paths unless upstream libinfnoise changes invalidate the older
-path.  If in doubt, compile against both and confirm make test passes.
+The provider hard-requires the patched libinfnoise fork (Strykar/infnoise
+on libinfnoise-error-codes), which provides per-context Keccak/health
+state and signed-int32_t readData.  Build will fail with a clear
+#error if linked against unpatched waywardgeek/infnoise.
 
-See doc/ARCHITECTURE.txt §6 for details.
+CI workflows (build / sanitizers / cifuzz / codeql / coverity) clone
+the patched fork branch directly.  See doc/ARCHITECTURE.txt §6.
 
 
 7. COMMIT HYGIENE
@@ -155,6 +166,9 @@ Before opening a PR, confirm:
   [ ] `make test` passes 27/27 (hardware connected).
   [ ] `make test-asan` clean.
   [ ] `make test-ubsan` clean.
+  [ ] `make test-tsan` clean.
+  [ ] `make test-alloc` clean.
+  [ ] `make fuzz FUZZ_CC=clang` builds; each harness 60 s clean.
   [ ] `make lint` introduces no new findings.
   [ ] Soak test run completed (duration appropriate to change scope).
   [ ] doc/ARCHITECTURE.txt updated if design changes.

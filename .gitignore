@@ -15,5 +15,16 @@ oom-*
 slow-*
 leak-*
 
+# TSan / allocator-failure test binaries
+test_infnoise_tsan
+test_infnoise_alloc
+
+# libFuzzer harness binaries (built artifacts; sources are tracked)
+fuzz/fuzz_dispatch
+fuzz/fuzz_params
+fuzz/fuzz_ossl_params
+fuzz/fuzz_spill_oracle
+fuzz/fuzz_provider_init
+
 # Internal development notes — never upload
 bg.md

@@ -23,5 +23,7 @@ jobs:
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
             --suppress=checkersReport \
+            --suppress=normalCheckLevelMaxBranches \
+            --suppress=unmatchedSuppression \
             $(pkg-config --cflags-only-I libcrypto libftdi1) \
             src/ test/
