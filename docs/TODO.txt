@@ -2,7 +2,9 @@
         Infinite Noise TRNG — OpenSSL 3.x Provider: TODO
 ================================================================================
 
-Deferred work.  Not blocking alpha; worth doing before beta.
+Deferred work.  Not blocking alpha; worth doing before beta or first
+signed release.
+
 
 Packaging
   [ ] AUR package (infnoise-provider-git and/or versioned)
@@ -11,14 +13,29 @@ Packaging
   [ ] examples/ — systemd drop-in scoping provider to a single service
   [ ] Signed git tags (git tag -s)
   [ ] Signed release tarballs + PGP fingerprint in README
+      (signing model documented in docs/Governance.txt §3)
+
 
 Documentation
-  [ ] docs/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed, daemon coexistence)
-  [x] Drop the INFNOISE_PATCHED compile-time bridge.  Provider now hard-
-      requires the patched libinfnoise fork (per-context state, signed-
-      rc readData); a #ifndef INFNOISE_KECCAK_STATE_SIZE / #error guards
-      the build.  README "Requirements" updated; the two unpatched-
-      related "Known limitations" bullets removed.
+  [ ] docs/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed,
+      daemon coexistence)
+  [x] Drop the INFNOISE_PATCHED compile-time bridge.  Provider now
+      hard-requires the patched libinfnoise fork (per-context state,
+      signed-rc readData); a #ifndef INFNOISE_KECCAK_STATE_SIZE /
+      #error guards the build.  README "Requirements" updated; the
+      two unpatched-related "Known limitations" bullets removed.
+  [x] docs/Fuzz_Coverage.txt — per-function coverage report (97.9%).
+  [x] docs/Security_Review.txt — brief for an external cryptographic
+      reviewer covering scope, threat model, and six concrete claims
+      to verify.
+  [x] docs/Governance.txt — single-maintainer model, authentication
+      controls, signing-key plan, key/account-compromise procedure.
+  [x] docs/Build_Security.txt §3 — reproducibility status (honest
+      "not yet pursued") and §4 — SBOM generation via `make sbom`.
+  [x] SECURITY.md — full triage workflow with P0/P1/P2 SLAs,
+      safe-harbour clause, no-bug-bounty stance, key-compromise
+      pointer.
+
 
 CI and testing
   [x] GitHub Actions: CodeQL (security-and-quality) on push + PR + weekly
@@ -26,21 +43,35 @@ CI and testing
   [x] GitHub Actions: ASan + UBSan sanitizer builds
   [x] GitHub Actions: cppcheck on push/PR
   [x] GitHub Actions: Coverity Scan (weekly cron)
-  [x] GitHub Actions: Codecov coverage upload
-  [x] GitHub Actions: OpenSSF Scorecard
-  [x] libFuzzer harness — 5 targets under fuzz/ (mock_libinfnoise stub,
-      fuzz_dispatch state machine, fuzz_params boundaries, fuzz_ossl_params
-      param surface, fuzz_spill_oracle differential test, fuzz_provider_init
-      OpenSSL entry points), make fuzz target, docs/Fuzz_Coverage.txt
-      (97.9% line, 22/23 functions ≥90%).  CIFuzz workflow is opt-in.
+  [x] CIFuzz workflow — runs all 5 libFuzzer targets on every PR
+      (60 s/target) and push (120 s/target); replays the regression
+      inputs under fuzz/regressions/ before the timed runs so a
+      regression of a fixed bug fails fast.
+  [x] make test-tsan — ThreadSanitizer concurrency stress.
+  [x] make test-alloc — allocator-failure injection (4 sites).
+  [x] make sbom — SPDX-2.3 software bill of materials.
+  [x] Fuzz corpus persistence (fuzz/corpus/<harness>/, ~505 files).
+  [-] OpenSSF Scorecard — intentionally NOT used.  Removed in PR #7;
+      structural single-maintainer factors (no co-maintainer, no
+      signed releases yet, no published package, single-person
+      review) prevent a credible 10/10 score.  Best Practices badge
+      already covers what Scorecard credibly checks at this stage.
+  [ ] OSS-Fuzz onboarding (continuous fuzzing + MSan-instrumented
+      libcrypto; deferred until shortly before first signed release)
+  [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha
+
 
 Release discipline
-  [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha
   [ ] First signed Release, gated on:
       [x] 24 h endurance run green (2026-04-24: 14698 generate calls,
           4.21 GiB, 49.9 KiB/s, 0 errors, 95 churn cycles, RSS +1.2 MiB
           peak, ended -1.0 MiB below start; see issue #8 and README)
-      [ ] upstream waywardgeek/infnoise#119 resolved
-      [ ] external review
+      [x] Patched-libinfnoise dependency resolved.  Strykar/infnoise
+          fork carries the per-context-state and signed-rc patches;
+          provider hard-requires it via #error.  No upstream-merge
+          dependency remains.
+      [ ] External cryptographic review per docs/Security_Review.txt
+          (the only outstanding gate)
+
 
 ================================================================================

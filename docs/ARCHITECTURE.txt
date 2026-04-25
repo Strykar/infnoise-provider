@@ -196,37 +196,76 @@ checksec on the produced infnoise.so reports:
 8. TEST COVERAGE
 ----------------
 
-28 tests across 5 layers.  All pass under:
-  - Normal build (-O2, hardened)
-  - AddressSanitizer (detect_leaks=1, abort_on_error=1)
-  - UndefinedBehaviorSanitizer (halt_on_error=1)
+The provider is exercised by three independent test binaries plus a
+five-target libFuzzer harness suite, all clean under the sanitiser
+matrix (ASan / UBSan / TSan / MSan-where-feasible / Valgrind).
 
-Layer 1 — Direct libinfnoise hardware (4)
-  hw_detect, hw_init_deinit, hw_read_raw, hw_read_multiple
+Integration harness — test/test_infnoise_prov.c (28 tests, 5 layers):
 
-Layer 2a — Provider API, no hardware (6)
-  provider_load, provider_params, evp_rand_fetch,
-  evp_rand_gettable_params, evp_rand_ctx_uninitialised,
-  provider_reload_cycles
+  Layer 1 — Direct libinfnoise hardware (4)
+    hw_detect, hw_init_deinit, hw_read_raw, hw_read_multiple
 
-Layer 2b — Provider API, hardware required (6)
-  evp_rand_lifecycle, evp_rand_ctx_params, evp_rand_locking,
-  evp_rand_strength_check, evp_rand_generate_sizes, evp_rand_reseed
+  Layer 2a — Provider API, no hardware (7)
+    provider_load, provider_params, evp_rand_fetch,
+    evp_rand_gettable_params, evp_rand_ctx_uninitialised,
+    evp_rand_error_codes (asserts PROV_R_* reason codes on
+    documented failure paths), provider_reload_cycles
 
-Layer 3 — High-level OpenSSL integration (3)
-  rand_bytes, rsa_keygen_2048, ec_keygen_p256
+  Layer 2b — Provider API, hardware required (6)
+    evp_rand_lifecycle, evp_rand_ctx_params, evp_rand_locking,
+    evp_rand_strength_check, evp_rand_generate_sizes, evp_rand_reseed
 
-Layer 4 — Statistical quality (4)
-  stat_monobit (NIST SP 800-22 frequency test, p > 0.01),
-  stat_byte_distribution (chi-squared, chi2 < 350),
-  stat_runs (serial independence),
-  stat_two_sample_independence (two reads differ > 90%)
+  Layer 3 — High-level OpenSSL integration (3)
+    rand_bytes, rsa_keygen_2048, ec_keygen_p256
 
-Layer 5 — Memory safety and robustness (4)
-  mem_ctx_churn (100 newctx/freectx cycles),
-  mem_instantiate_churn (10 full lifecycle cycles),
-  mem_boundary_generate (spill buffer boundary sizes),
-  mem_zero_length_generate
+  Layer 4 — Statistical quality (4)
+    stat_monobit (NIST SP 800-22 frequency test, p > 0.01),
+    stat_byte_distribution (chi-squared, chi2 < 350),
+    stat_runs (serial independence),
+    stat_two_sample_independence (two reads differ > 90%)
+
+  Layer 5 — Memory safety and robustness (4)
+    mem_ctx_churn (100 newctx/freectx cycles),
+    mem_instantiate_churn (10 full lifecycle cycles),
+    mem_boundary_generate (spill buffer boundary sizes),
+    mem_zero_length_generate
+
+Concurrency stress — test/test_infnoise_tsan.c (make test-tsan):
+
+  Two scenarios under -fsanitize=thread, each 4 threads × 20 000
+  iterations: shared context with provider locking, and per-thread
+  contexts.  No data races detected.
+
+Allocator-failure injection — test/test_infnoise_alloc.c (make test-alloc):
+
+  CRYPTO_set_mem_functions hooks fail the Nth allocation; four
+  provider alloc sites are driven and verified to return the
+  documented failure indicator without partial state (see §5
+  "Secure seed allocation" caveat).
+
+libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
+
+  fuzz_dispatch        State-machine coverage across 4 ctx slots.
+  fuzz_params          Boundary cases for outlen / strength / addin.
+  fuzz_ossl_params     OSSL_PARAM surface incl. type-mismatched arrays.
+  fuzz_spill_oracle    Differential test against an in-harness
+                       reference implementation of the spill-buffer
+                       contract.  Found the phase-3 short-read
+                       memory disclosure (commit history).
+  fuzz_provider_init   OSSL_provider_init / query / get_params /
+                       teardown.
+
+  Coverage: 280/286 lines (97.9%), 22/23 functions ≥ 90% line cov.
+  Persistent corpus committed under fuzz/corpus/<harness>/; the two
+  inputs that triggered fixed bugs live under fuzz/regressions/ and
+  are replayed by CIFuzz on every PR.
+
+Endurance run — test/test_infnoise_soak.c (make test-soak):
+
+  24-hour drive of EVP_RAND through the provider; tracks RSS for
+  leaks, dumps rolling samples for offline analysis with
+  ent / rngtest / dieharder.  Last run (issue #8): 14 698 generate
+  calls, 4.21 GiB produced, 0 errors, RSS bounded.
 
 
 9. CONFIGURATION

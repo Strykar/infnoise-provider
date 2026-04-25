@@ -40,15 +40,27 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 # libftdi1 is in the official repos
 pacman -S libftdi openssl pkgconf
 
-# infnoise / libinfnoise from AUR or manual build
-# See https://github.com/waywardgeek/infnoise/tree/master/software
+# Patched libinfnoise from the Strykar/infnoise fork.
+# Upstream waywardgeek/infnoise (and any AUR package built from it)
+# is unpatched and will fail this provider's compile-time guard.
+git clone --branch libinfnoise-error-codes \
+    https://github.com/Strykar/infnoise /tmp/infnoise
+make -C /tmp/infnoise/software -f Makefile.linux libinfnoise.so
+sudo make -C /tmp/infnoise/software -f Makefile.linux PREFIX=/usr install-lib
+sudo ldconfig
 ```
 
 ### Debian / Ubuntu
 
 ```sh
-apt install libftdi1-dev libssl-dev pkg-config
-# Build libinfnoise from source — see upstream README
+apt install libftdi1-dev libssl-dev pkg-config build-essential
+
+# Patched libinfnoise from source — same Strykar/infnoise branch.
+git clone --branch libinfnoise-error-codes \
+    https://github.com/Strykar/infnoise /tmp/infnoise
+make -C /tmp/infnoise/software -f Makefile.linux libinfnoise.so
+sudo make -C /tmp/infnoise/software -f Makefile.linux PREFIX=/usr install-lib
+sudo ldconfig
 ```
 
 ## Building
@@ -133,7 +145,18 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 ## Testing
 
-The test harness runs 28 tests across 5 layers (hardware, provider API, integration, statistical, memory safety) plus sanitizer, valgrind, static-analysis, and soak targets.  See [docs/Testing.txt](docs/Testing.txt) for invocations and the per-layer breakdown.
+The test arsenal:
+
+- `make test` — 28-test integration harness across 5 layers (hardware, provider API, integration, statistical, memory safety).
+- `make test-asan` / `test-ubsan` / `test-valgrind` — sanitiser builds against the integration harness.
+- `make test-tsan` — ThreadSanitizer concurrency stress, 4 threads × 20 000 iterations × 2 scenarios. No hardware needed.
+- `make test-alloc` — `CRYPTO_set_mem_functions` failure injection at four alloc sites. No hardware needed.
+- `make fuzz FUZZ_CC=clang` — five libFuzzer harnesses (dispatch / params / ossl_params / spill_oracle / provider_init) under `fuzz/`. Coverage 280 of 286 lines (97.9%); 22 of 23 functions ≥ 90%. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
+- `make test-soak` / `test-soak-short` — 24-hour / 1-hour endurance run through the provider; details below.
+- `make lint` — cppcheck + `gcc -fanalyzer` static analysis.
+- `make sbom` — SPDX-2.3 software bill of materials at `sbom.spdx.txt`.
+
+See [docs/Testing.txt](docs/Testing.txt) for invocations and the per-layer breakdown.
 
 ### 24-hour endurance run
 
@@ -202,7 +225,7 @@ infnoise-provider/
 
 ## Security
 
-Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped), entropy-buffer cleansing on all paths, `mlock`'d seed buffers, bounded request sizes, and thread-safe dispatch.  See [docs/Build_Security.txt](docs/Build_Security.txt) for the full list and [docs/ARCHITECTURE.txt](docs/ARCHITECTURE.txt) for the design rationale.
+Full binary hardening (RELRO, stack canary, CET/IBT, NX, PIE, FORTIFY_SOURCE=3, stripped), entropy-buffer cleansing on all paths, secure-heap seed allocation (`OPENSSL_secure_malloc` — `mlock`'d when the application initialises OpenSSL's secure heap before the first call; see [docs/ARCHITECTURE.txt §5](docs/ARCHITECTURE.txt)), bounded request sizes, and thread-safe dispatch.  See [docs/Build_Security.txt](docs/Build_Security.txt) for the full list and [docs/ARCHITECTURE.txt](docs/ARCHITECTURE.txt) for the design rationale.  Vulnerability disclosure: [SECURITY.md](SECURITY.md).  Maintainer / signing model: [docs/Governance.txt](docs/Governance.txt).
 
 ## Known limitations
 
