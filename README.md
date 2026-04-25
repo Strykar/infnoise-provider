@@ -1,10 +1,10 @@
 # infnoise-provider
 
 [![build](https://github.com/Strykar/infnoise-provider/actions/workflows/build.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/build.yml)
+[![CIFuzz](https://github.com/Strykar/infnoise-provider/actions/workflows/cifuzz.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/cifuzz.yml)
 [![cppcheck](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/cppcheck.yml)
 [![CodeQL](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/codeql.yml)
 [![sanitizers](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml)
-[![CIFuzz](https://github.com/Strykar/infnoise-provider/actions/workflows/cifuzz.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/cifuzz.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12494/badge)](https://www.bestpractices.dev/projects/12494)
 [![Coverity Scan](https://scan.coverity.com/projects/Strykar-infnoise-provider/badge.svg)](https://scan.coverity.com/projects/Strykar-infnoise-provider)
 [![Language: C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
@@ -23,7 +23,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 
 **Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
-> **Alpha software** (current tag: `v0.0.1-alpha`).  The code passes its own test harness and sanitizer runs, but has not been independently audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
+> **Alpha software** (current tag: `v0.0.1-alpha`).  Passes a 28-test integration harness, five libFuzzer harnesses at 97.9% line coverage, a 24-hour endurance run, and the ASan / UBSan / TSan / allocator-failure sanitiser matrix — but has not been **independently** audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy, [docs/Security_Review.txt](docs/Security_Review.txt) for the brief prepared for an external reviewer, and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
 
 ## Requirements
 
