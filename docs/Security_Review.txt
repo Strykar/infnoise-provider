@@ -167,7 +167,7 @@ Available to the reviewer:
     correctness bugs in the spill buffer logic, not just crashes.  This
     found the phase-3 short-read disclosure (fixed 2026-04-25).
 
-  - 27-test integration harness (make test) including statistical
+  - 28-test integration harness (make test) including statistical
     quality checks (monobit, byte distribution, runs, two-sample).
 
   - 24-hour endurance run: 14 698 generate calls, 4.21 GiB output, 0

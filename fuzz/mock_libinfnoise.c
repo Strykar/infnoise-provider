@@ -19,9 +19,9 @@
 //                              (the patched libinfnoise's negative-rc path);
 //                              subsequent calls return 0 transient.
 //
-// The patched libinfnoise.h installed on this system defines
-// INFNOISE_KECCAK_STATE_SIZE, so the provider compiles with INFNOISE_PATCHED=1
-// and readData() is expected to return int32_t.
+// The patched libinfnoise.h is required by the provider (guarded with
+// #ifndef INFNOISE_KECCAK_STATE_SIZE / #error in src/infnoise_prov.c),
+// so readData() returns signed int32_t — < 0 fatal, 0 transient, > 0 OK.
 
 #include <libinfnoise.h>
 #include <pthread.h>

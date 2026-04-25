@@ -28,8 +28,9 @@ jobs:
             clang pkg-config libssl-dev libftdi1-dev
 
       - name: Build and install patched libinfnoise (Strykar fork)
-        # The patched header (defines INFNOISE_KECCAK_STATE_SIZE) is required
-        # so the provider's INFNOISE_PATCHED=1 code path is compiled in.
+        # The provider hard-requires the patched fork via #ifndef
+        # INFNOISE_KECCAK_STATE_SIZE / #error.  Cloning the right
+        # branch is the only thing that makes the build succeed.
         run: |
           git clone --depth 1 --branch libinfnoise-error-codes https://github.com/Strykar/infnoise /tmp/infnoise
           make -C /tmp/infnoise/software -f Makefile.linux \
