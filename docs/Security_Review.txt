@@ -21,7 +21,7 @@ qualified reviewer (OpenSSL Provider API + memory-safety familiarity).
 
   src/                         Out of scope: no other provider source files.
 
-  test/, fuzz/                 In scope only insofar as they validate the
+  tests/, fuzz/                In scope only insofar as they validate the
                                security claims; not part of the shipped
                                attack surface.
 

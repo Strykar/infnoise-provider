@@ -26,4 +26,4 @@ jobs:
             --suppress=normalCheckLevelMaxBranches \
             --suppress=unmatchedSuppression \
             $(pkg-config --cflags-only-I libcrypto libftdi1) \
-            src/ test/
+            src/ tests/
