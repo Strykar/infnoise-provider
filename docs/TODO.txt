@@ -58,7 +58,9 @@ CI and testing
       already covers what Scorecard credibly checks at this stage.
   [ ] OSS-Fuzz onboarding (continuous fuzzing + MSan-instrumented
       libcrypto; deferred until shortly before first signed release)
-  [ ] CHANGELOG.md (Keep-a-Changelog) once out of alpha
+  [x] CHANGELOG.md (Keep-a-Changelog 1.1.0).  [Unreleased] section
+      tracks all post-v0.0.1-alpha work; will be promoted to a
+      version heading at first signed release.
 
 
 Release discipline
