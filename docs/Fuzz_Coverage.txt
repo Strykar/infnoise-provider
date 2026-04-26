@@ -4,8 +4,8 @@
 
 Honest accounting of what fuzz testing exercises in src/infnoise_prov.c, what
 it doesn't, and why.  Numbers below are line coverage from a 60-second run
-of each harness against an empty starting corpus, measured 2026-04-25 after
-PR #9 merge.
+of each harness against the persistent fuzz/corpus/<harness>/ seed pool,
+measured 2026-04-26 after PRs #10, #11, #12 merged.
 
 
 1. SUMMARY
@@ -14,9 +14,17 @@ PR #9 merge.
   Total source functions: 23
   Functions ≥90% line cov: 22
   Functions <90% line cov:  1
-  Total source lines:     286
-  Lines covered:          280  (97.9%)
-  Lines uncovered:          6  (all allocator-failure paths)
+  Total source lines:     305
+  Lines covered:          295  (96.7%)
+  Lines uncovered:         10  (6 allocator-failure, 4 defensive-NULL)
+
+  The percentage dropped slightly from 97.9% (pre-PR-10/11/12 measure)
+  as the source file grew by 19 lines for defensive NULL checks, an
+  entropy-parameter rejection in get_seed, and a verify_zeroization
+  scope extension.  The four new defensive returns are hard to reach
+  with fuzz inputs because they require violating the OpenSSL
+  framework's vctx / pout non-NULL guarantees, which the harnesses
+  (correctly) honour.
 
 
 2. HARNESSES
@@ -71,18 +79,18 @@ in place of real libinfnoise (no USB device needed).
   infnoise_rand_freectx                   10/10  100.0%
   infnoise_rand_generate                  54/54  100.0%
   infnoise_rand_get_ctx_params            16/16  100.0%
-  infnoise_rand_get_seed                  16/17   94.1%
+  infnoise_rand_get_seed                  23/25   92.0%
   infnoise_rand_gettable_ctx_params        3/3   100.0%
-  infnoise_rand_instantiate               23/23  100.0%
+  infnoise_rand_instantiate               25/26   96.2%
   infnoise_rand_lock                       6/6   100.0%
   infnoise_rand_newctx                    13/14   92.9%
   infnoise_rand_reseed                    11/11  100.0%
-  infnoise_rand_uninstantiate              9/9   100.0%
+  infnoise_rand_uninstantiate             11/12   91.7%
   infnoise_rand_unlock                     5/5   100.0%
-  infnoise_rand_verify_zeroization        12/12  100.0%
+  infnoise_rand_verify_zeroization        16/17   94.1%
   infnoise_read_device                    27/27  100.0%
   ----------------------------------------------------
-  TOTAL                                  280/286  97.9%
+  TOTAL                                  295/305  96.7%
 
 
 4. UNCOVERED LINES — AND WHY
@@ -96,12 +104,25 @@ allocations needed for error reporting is non-trivial.
 
   Line  Function                      Why uncovered
   ────  ───────────────────────────   ──────────────────────────────────
-  182   infnoise_rand_newctx          OPENSSL_zalloc returned NULL.
-  447   infnoise_rand_enable_locking  CRYPTO_THREAD_lock_new returned NULL.
-  448   infnoise_rand_enable_locking  same — ERR_raise + return 0 path.
-  449   infnoise_rand_enable_locking  same — closing brace of error path.
-  489   infnoise_rand_get_seed        OPENSSL_secure_malloc returned NULL.
-  657   OSSL_provider_init            OPENSSL_zalloc returned NULL.
+  184   infnoise_rand_newctx          OPENSSL_zalloc returned NULL.
+  218   infnoise_rand_instantiate     ctx == NULL early return (PR #11
+                                       added the defensive check; framework
+                                       guarantees ctx is non-NULL so the
+                                       fuzz harnesses don't drive this).
+  261   infnoise_rand_uninstantiate   same defensive ctx == NULL return.
+  468   infnoise_rand_enable_locking  CRYPTO_THREAD_lock_new returned NULL.
+  469   infnoise_rand_enable_locking  same: ERR_raise + return 0 path.
+  470   infnoise_rand_enable_locking  same: closing brace of error path.
+  500   infnoise_rand_get_seed        pout == NULL early return (PR #11
+                                       added; framework guarantees pout).
+  521   infnoise_rand_get_seed        OPENSSL_secure_malloc returned NULL.
+  556   infnoise_rand_get_seed        entropy > 8*len rejection (PR #10
+                                       added; current corpus doesn't have
+                                       a seed input where entropy exceeds
+                                       8 * max_len, but the input
+                                       structure permits it — coverage
+                                       should grow with longer fuzz runs).
+  696   OSSL_provider_init            OPENSSL_zalloc returned NULL.
 
 These paths are defensive code that defends against host-system OOM.  They
 have been visually reviewed; each does the minimum (raise an error, return
