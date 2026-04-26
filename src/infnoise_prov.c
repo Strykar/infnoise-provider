@@ -28,6 +28,7 @@
 #include <openssl/core.h>
 #include <openssl/core_dispatch.h>
 #include <openssl/core_names.h>
+#include <openssl/e_os2.h>
 #include <openssl/params.h>
 #include <openssl/evp.h>
 #include <openssl/err.h>
@@ -38,10 +39,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __GNUC__
-#define UNUSED __attribute__((unused))
-#else
-#define UNUSED
+// OSSL_DISPATCH_END landed in OpenSSL 3.3.  Provide a compat shim so the
+// provider still compiles against 3.0..3.2 headers (Ubuntu 22.04, Debian
+// bookworm).  The expansion matches the macro that newer headers ship.
+#ifndef OSSL_DISPATCH_END
+# define OSSL_DISPATCH_END { 0, NULL }
 #endif
 
 ///////////////////
@@ -167,7 +169,7 @@ static OSSL_FUNC_rand_clear_seed_fn infnoise_rand_clear_seed;
 static OSSL_FUNC_rand_verify_zeroization_fn infnoise_rand_verify_zeroization;
 
 static void *infnoise_rand_newctx(void *provctx, void *parent,
-                                   UNUSED const OSSL_DISPATCH *parent_dispatch)
+                                   ossl_unused const OSSL_DISPATCH *parent_dispatch)
 {
     PROV_INFNOISE *ctx;
 
@@ -205,10 +207,10 @@ static void infnoise_rand_freectx(void *vctx)
 }
 
 static int infnoise_rand_instantiate(void *vctx, unsigned int strength,
-                                     UNUSED int prediction_resistance,
-                                     UNUSED const unsigned char *pstr,
-                                     UNUSED size_t pstr_len,
-                                     UNUSED const OSSL_PARAM params[])
+                                     ossl_unused int prediction_resistance,
+                                     ossl_unused const unsigned char *pstr,
+                                     ossl_unused size_t pstr_len,
+                                     ossl_unused const OSSL_PARAM params[])
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
 
@@ -304,9 +306,9 @@ static uint32_t infnoise_read_device(PROV_INFNOISE *ctx,
 
 static int infnoise_rand_generate(void *vctx, unsigned char *out,
                                   size_t outlen, unsigned int strength,
-                                  UNUSED int prediction_resistance,
-                                  UNUSED const unsigned char *addin,
-                                  UNUSED size_t addin_len)
+                                  ossl_unused int prediction_resistance,
+                                  ossl_unused const unsigned char *addin,
+                                  ossl_unused size_t addin_len)
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
 
@@ -326,7 +328,7 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
     }
 
     if (outlen > INFNOISE_MAX_REQUEST) {
-        ERR_raise_data(ERR_LIB_PROV, ERR_R_PASSED_INVALID_ARGUMENT,
+        ERR_raise_data(ERR_LIB_PROV, PROV_R_REQUEST_TOO_LARGE_FOR_DRBG,
                        "requested %zu bytes exceeds max %zu",
                        outlen, INFNOISE_MAX_REQUEST);
         return 0;
@@ -384,11 +386,11 @@ static int infnoise_rand_generate(void *vctx, unsigned char *out,
     return 1;
 }
 
-static int infnoise_rand_reseed(void *vctx, UNUSED int prediction_resistance,
-                                UNUSED const unsigned char *ent,
-                                UNUSED size_t ent_len,
-                                UNUSED const unsigned char *addin,
-                                UNUSED size_t addin_len)
+static int infnoise_rand_reseed(void *vctx, ossl_unused int prediction_resistance,
+                                ossl_unused const unsigned char *ent,
+                                ossl_unused size_t ent_len,
+                                ossl_unused const unsigned char *addin,
+                                ossl_unused size_t addin_len)
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
 
@@ -410,8 +412,8 @@ static const OSSL_PARAM infnoise_gettable_ctx_params[] = {
     OSSL_PARAM_END
 };
 
-static const OSSL_PARAM *infnoise_rand_gettable_ctx_params(UNUSED void *vctx,
-                                                            UNUSED void *provctx)
+static const OSSL_PARAM *infnoise_rand_gettable_ctx_params(ossl_unused void *vctx,
+                                                            ossl_unused void *provctx)
 {
     return infnoise_gettable_ctx_params;
 }
@@ -514,7 +516,7 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
     return len;
 }
 
-static void infnoise_rand_clear_seed(UNUSED void *vctx, unsigned char *buf,
+static void infnoise_rand_clear_seed(ossl_unused void *vctx, unsigned char *buf,
                                      size_t len)
 {
     OPENSSL_secure_clear_free(buf, len);
@@ -572,7 +574,7 @@ static const OSSL_DISPATCH infnoise_rand_dispatch[] = {
     { OSSL_FUNC_RAND_CLEAR_SEED, (void (*)(void))infnoise_rand_clear_seed },
     { OSSL_FUNC_RAND_VERIFY_ZEROIZATION,
       (void (*)(void))infnoise_rand_verify_zeroization },
-    { 0, NULL }  // OSSL_DISPATCH_END equivalent; portable across all 3.x
+    OSSL_DISPATCH_END
 };
 
 ///////////////////////////
@@ -590,7 +592,7 @@ static OSSL_FUNC_provider_gettable_params_fn infnoise_prov_gettable_params;
 static OSSL_FUNC_provider_get_params_fn infnoise_prov_get_params;
 static OSSL_FUNC_provider_teardown_fn infnoise_prov_teardown;
 
-static const OSSL_ALGORITHM *infnoise_prov_query(UNUSED void *provctx,
+static const OSSL_ALGORITHM *infnoise_prov_query(ossl_unused void *provctx,
                                                   int operation_id,
                                                   int *no_cache)
 {
@@ -610,12 +612,12 @@ static const OSSL_PARAM infnoise_prov_param_types[] = {
     OSSL_PARAM_END
 };
 
-static const OSSL_PARAM *infnoise_prov_gettable_params(UNUSED void *provctx)
+static const OSSL_PARAM *infnoise_prov_gettable_params(ossl_unused void *provctx)
 {
     return infnoise_prov_param_types;
 }
 
-static int infnoise_prov_get_params(UNUSED void *provctx, OSSL_PARAM params[])
+static int infnoise_prov_get_params(ossl_unused void *provctx, OSSL_PARAM params[])
 {
     OSSL_PARAM *p;
 
@@ -656,7 +658,7 @@ static const OSSL_DISPATCH infnoise_prov_dispatch[] = {
       (void (*)(void))infnoise_prov_get_params },
     { OSSL_FUNC_PROVIDER_QUERY_OPERATION,
       (void (*)(void))infnoise_prov_query },
-    { 0, NULL }  // OSSL_DISPATCH_END equivalent; portable across all 3.x
+    OSSL_DISPATCH_END
 };
 
 ///////////////////////////
@@ -664,7 +666,7 @@ static const OSSL_DISPATCH infnoise_prov_dispatch[] = {
 ///////////////////////////
 
 int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
-                       UNUSED const OSSL_DISPATCH *in,
+                       ossl_unused const OSSL_DISPATCH *in,
                        const OSSL_DISPATCH **out,
                        void **provctx)
 {
