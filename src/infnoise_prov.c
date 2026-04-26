@@ -219,9 +219,12 @@ static int infnoise_rand_instantiate(void *vctx, unsigned int strength,
         return 0;
     }
 
-    // Guard against double-instantiate without uninstantiate: the FTDI
-    // context inside trng_context would leak.
-    if (ctx->state == EVP_RAND_STATE_READY)
+    // Recover the device handle from any prior state.  READY means the
+    // caller double-instantiated without uninstantiate; ERROR means the
+    // caller hit a fault and is restarting.  Both leave the FTDI handle
+    // live inside trng_context, so deinit before the fresh init.
+    if (ctx->state == EVP_RAND_STATE_READY
+        || ctx->state == EVP_RAND_STATE_ERROR)
         deinitInfnoise(&ctx->trng_context);
 
     // libinfnoise takes char* (not const char*) for the serial parameter.
@@ -244,7 +247,12 @@ static int infnoise_rand_uninstantiate(void *vctx)
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
 
-    if (ctx->state == EVP_RAND_STATE_READY)
+    // Mirror freectx: deinit on both READY and ERROR.  Without the ERROR
+    // branch a caller that hit a generate failure and called uninstantiate
+    // to recover would leave the FTDI handle live; the next instantiate
+    // would race with a still-open libftdi context.
+    if (ctx->state == EVP_RAND_STATE_READY
+        || ctx->state == EVP_RAND_STATE_ERROR)
         deinitInfnoise(&ctx->trng_context);
 
     SpillBufferInit(&ctx->spill);
@@ -469,20 +477,28 @@ static void infnoise_rand_unlock(void *vctx)
 }
 
 static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
-                                     UNUSED int entropy, size_t min_len,
+                                     int entropy, size_t min_len,
                                      size_t max_len,
                                      int prediction_resistance,
                                      const unsigned char *adin,
                                      size_t adin_len)
 {
     size_t len = min_len;
-
-    // Respect the ceiling.
     if (max_len < len)
         len = max_len;
-
     if (len == 0)
         return 0;
+
+    // The TRNG delivers full entropy (8 bits per byte after Keccak whitening),
+    // so the largest entropy a buffer of `len` bytes can carry is 8*len bits.
+    // Reject requests that ask for more than the buffer can hold rather than
+    // silently undershoot the caller's contract.
+    if (entropy > 0 && (size_t)entropy > 8u * len) {
+        ERR_raise_data(ERR_LIB_PROV, ERR_R_PASSED_INVALID_ARGUMENT,
+                       "requested %d bits but max buffer holds %zu",
+                       entropy, 8u * len);
+        return 0;
+    }
 
     unsigned char *buf = OPENSSL_secure_malloc(len);
     if (buf == NULL)
@@ -511,18 +527,25 @@ static int infnoise_rand_verify_zeroization(void *vctx)
     if (ctx == NULL)
         return 0;
 
-    // When uninstantiated, the spill buffer and trng_context are cleansed.
     if (ctx->state != EVP_RAND_STATE_UNINITIALISED)
         return 0;
 
-    // Use constant-time comparison against zero to prevent the compiler
-    // from optimising away the check after OPENSSL_cleanse.
-    unsigned char zero[sizeof(ctx->spill)];
-    memset(zero, 0, sizeof(zero));
-    if (CRYPTO_memcmp(&ctx->spill, zero, sizeof(zero)) != 0)
+    // Constant-time check both regions cleansed by uninstantiate: the spill
+    // buffer (caller-visible entropy carry) and the trng_context (libinfnoise
+    // Keccak sponge + health state).  CRYPTO_memcmp prevents the compiler
+    // from optimising the check away after the OPENSSL_cleanse.
+    size_t total = sizeof(ctx->spill) + sizeof(ctx->trng_context);
+    unsigned char *zero = OPENSSL_zalloc(total);
+    if (zero == NULL)
         return 0;
 
-    return 1;
+    int spill_dirty = CRYPTO_memcmp(&ctx->spill, zero,
+                                    sizeof(ctx->spill));
+    int trng_dirty  = CRYPTO_memcmp(&ctx->trng_context, zero,
+                                    sizeof(ctx->trng_context));
+
+    OPENSSL_free(zero);
+    return (spill_dirty | trng_dirty) == 0;
 }
 
 ///////////////////////////
