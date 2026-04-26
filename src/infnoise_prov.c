@@ -212,6 +212,9 @@ static int infnoise_rand_instantiate(void *vctx, unsigned int strength,
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
 
+    if (ctx == NULL)
+        return 0;
+
     if (strength > INFNOISE_STRENGTH) {
         ERR_raise_data(ERR_LIB_PROV, PROV_R_INSUFFICIENT_DRBG_STRENGTH,
                        "requested %u, device provides %u",
@@ -227,8 +230,13 @@ static int infnoise_rand_instantiate(void *vctx, unsigned int strength,
         || ctx->state == EVP_RAND_STATE_ERROR)
         deinitInfnoise(&ctx->trng_context);
 
-    // libinfnoise takes char* (not const char*) for the serial parameter.
-    if (!initInfnoise(&ctx->trng_context, (char *)(uintptr_t)kInfnoiseSerial,
+    // libinfnoise's signature takes char *, not const char *.  The cast
+    // strips const; with the current value (NULL) it's a no-op.  If
+    // kInfnoiseSerial ever becomes a non-NULL string literal, switch to
+    // a writable static buffer rather than relying on the cast staying
+    // safe — libinfnoise must not write to the buffer, but the C standard
+    // permits it given the non-const signature.
+    if (!initInfnoise(&ctx->trng_context, (char *)kInfnoiseSerial,
                       kKeccak, kDebug)) {
         ERR_raise_data(ERR_LIB_RAND, RAND_R_ERROR_RETRIEVING_ENTROPY,
                        "initInfnoise: %s",
@@ -246,6 +254,9 @@ static int infnoise_rand_instantiate(void *vctx, unsigned int strength,
 static int infnoise_rand_uninstantiate(void *vctx)
 {
     PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
+
+    if (ctx == NULL)
+        return 0;
 
     // Mirror freectx: deinit on both READY and ERROR.  Without the ERROR
     // branch a caller that hit a generate failure and called uninstantiate
@@ -483,6 +494,9 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
                                      const unsigned char *adin,
                                      size_t adin_len)
 {
+    if (pout == NULL)
+        return 0;
+
     size_t len = min_len;
     if (max_len < len)
         len = max_len;
