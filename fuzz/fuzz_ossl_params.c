@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Avinash H. Duduskar.
+// SPDX-License-Identifier: GPL-2.0-or-later
+// https://github.com/Strykar/infnoise-provider
+//
 // LibFuzzer harness: OSSL_PARAM surface and provider-level param coverage.
 //
 // Exercises infnoise_rand_get_ctx_params() and infnoise_prov_get_params()

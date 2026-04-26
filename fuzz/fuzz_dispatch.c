@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Avinash H. Duduskar.
+// SPDX-License-Identifier: GPL-2.0-or-later
+// https://github.com/Strykar/infnoise-provider
+//
 // LibFuzzer harness: dispatch-table state machine coverage.
 //
 // The fuzzer controls both the sequence of operations and their parameters,

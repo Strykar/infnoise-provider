@@ -1,3 +1,7 @@
+// Copyright (C) 2025-2026 Avinash H. Duduskar.
+// SPDX-License-Identifier: GPL-2.0-or-later
+// https://github.com/Strykar/infnoise-provider
+//
 // Allocator-failure injection test.
 //
 // Uses CRYPTO_set_mem_functions to install a counter-driven malloc wrapper
