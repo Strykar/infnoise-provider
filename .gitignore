@@ -35,3 +35,6 @@ bg.md
 
 # SBOM (generated at release time via 'make sbom')
 sbom.spdx.txt
+
+# Internal working notes (not for upstream)
+notes/
