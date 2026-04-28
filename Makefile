@@ -41,7 +41,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean sbom
+.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean sbom mutation mutation-clean
 
 all: $(TARGET_LIB)
 
@@ -330,3 +330,61 @@ $(FUZZ_DIR)/fuzz_%: $(FUZZ_DIR)/fuzz_%.c $(FUZZ_DIR)/mock_libinfnoise.o
 fuzz-clean:
 	-$(RM) $(FUZZ_TARGETS) $(FUZZ_DIR)/mock_libinfnoise.o
 	-$(RM) -r $(FUZZ_DIR)/corpus-*
+
+################################
+# Mutation testing (Mull, https://github.com/mull-project/mull)
+#
+# Release-prep tool, not part of the per-patch checklist.  Run before
+# tagging a signed release to confirm the spill-buffer assertions
+# remain load-bearing after any provider edits.
+#
+# Mull's IR frontend ships as a clang plugin built against a specific
+# LLVM version.  On Arch the mull-bin package targets LLVM 20, so the
+# build needs the matching clang-20 binary; system clang (often newer)
+# will reject the plugin's API version.
+#
+#   pacman -S mull-bin clang20
+#
+# Override MULL_CLANG / MULL_PLUGIN if your distro installs them
+# elsewhere.  The mutation pool is scoped to src/infnoise_prov.c via
+# mull.yml so the score reflects provider assertions, not harness
+# self-tests.
+################################
+
+MULL_DIR     = mutation
+MULL_CLANG  ?= /usr/lib/llvm20/bin/clang-20
+MULL_PLUGIN ?= /usr/lib/mull-ir-frontend-20
+MULL_RUNNER ?= mull-runner-20
+
+MULL_CFLAGS = -grecord-command-line -g -O0 -Wall -Wextra \
+              $(shell pkg-config --cflags libcrypto libftdi1) \
+              -fno-omit-frame-pointer
+MULL_LIBS   = $(shell pkg-config --libs libcrypto) -lpthread
+
+$(MULL_DIR)/mock_libinfnoise.o: $(FUZZ_DIR)/mock_libinfnoise.c \
+                                $(FUZZ_DIR)/mock_libinfnoise.h
+	$(MULL_CLANG) $(MULL_CFLAGS) -c $< -o $@
+
+$(MULL_DIR)/replay.o: $(MULL_DIR)/replay.c
+	$(MULL_CLANG) $(MULL_CFLAGS) -c $< -o $@
+
+# Only this TU is compiled with the Mull plugin.  It textually #includes
+# src/infnoise_prov.c so mutations target provider IR; mull.yml's
+# includePaths regex drops mutations whose debug info points at the
+# harness or oracle code.
+$(MULL_DIR)/oracle_target.o: $(FUZZ_DIR)/fuzz_spill_oracle.c \
+                             $(SRCDIR)/infnoise_prov.c
+	$(MULL_CLANG) -fpass-plugin=$(MULL_PLUGIN) $(MULL_CFLAGS) \
+	    -c $< -o $@
+
+$(MULL_DIR)/runner: $(MULL_DIR)/oracle_target.o $(MULL_DIR)/replay.o \
+                    $(MULL_DIR)/mock_libinfnoise.o
+	$(MULL_CLANG) $^ $(MULL_LIBS) -o $@
+
+mutation: $(MULL_DIR)/runner
+	@command -v $(MULL_RUNNER) >/dev/null 2>&1 || { \
+	    echo "ERROR: $(MULL_RUNNER) not found (install mull-bin)"; exit 1; }
+	$(MULL_RUNNER) $(MULL_DIR)/runner
+
+mutation-clean:
+	-$(RM) $(MULL_DIR)/runner $(MULL_DIR)/*.o

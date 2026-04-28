@@ -36,5 +36,8 @@ bg.md
 # SBOM (generated at release time via 'make sbom')
 sbom.spdx.txt
 
+# Mull mutation testing build artifacts
+mutation/runner
+
 # Internal working notes (not for upstream)
 notes/

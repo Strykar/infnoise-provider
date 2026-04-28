@@ -107,6 +107,17 @@ tests/test_infnoise_prov.c, numbered consistently, and assigned to the
 correct layer (Hardware / Provider API / Integration / Statistical /
 Memory safety).
 
+Optional, release-prep only:
+
+  make mutation       # Mull mutation testing against fuzz_spill_oracle
+
+Run before tagging a signed release.  Confirms the spill-buffer
+assertions are still load-bearing after provider edits.  Score-before
+vs score-after on the touched files is the audit signal; a drop
+indicates a weakened or missing assertion.  Requires mull-bin and
+clang20 (Mull's plugin pins to a specific LLVM major).  Not part of
+the per-patch checklist.
+
 
 5. SECURITY INVARIANTS
 ----------------------

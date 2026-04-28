@@ -100,6 +100,15 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   ([#11](https://github.com/Strykar/infnoise-provider/pull/11))
 - `OSSL_provider_init` zeros `*provctx` and `*out` at function entry so
   a misbehaving loader that ignores the return value can't deref garbage.
+- `make mutation` target for release-prep mutation testing using
+  [Mull](https://github.com/mull-project/mull). The pool is scoped to
+  `src/infnoise_prov.c` via `mull.yml` so the score reflects provider
+  assertions, not harness self-tests. Toolchain pins to `mull-bin` and
+  `clang20` on Arch (Mull's plugin loads only into the LLVM major it
+  was built against). Run before tagging a signed release;
+  score-before vs score-after on the touched files is the audit
+  signal. Documented in [docs/CONTRIBUTING.txt](docs/CONTRIBUTING.txt) §4
+  under "Optional, release-prep only".
 
 ### Changed
 
@@ -138,6 +147,17 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 - `docs/CONTRIBUTING.txt` updated with the new test gates
   (`test-tsan`, `test-alloc`, `make fuzz`) and a security-feeds
   subscription policy.
+- `fuzz_spill_oracle.c` extended with deterministic assertion drives
+  for the OSSL_PARAM surface (full set, type-mismatched data tags,
+  NULL ctx), the `get_seed` contract (NULL `pout`, `len=0`,
+  `max_len < min_len`, `entropy > 8*len` rejection), strength
+  rejection at `INFNOISE_STRENGTH+1` on a sibling ctx, and
+  NULL-ctx safety on `uninstantiate` / `freectx` /
+  `verify_zeroization`. Three previously-silent skip-paths now trap:
+  `bad_parent` must be rejected, `instantiate` must succeed when
+  `fail_init=0`, and `verify_zeroization` returns are asserted (was
+  `(void)`). Existing 196-input corpus replays cleanly under
+  libFuzzer.
 
 ### Removed
 

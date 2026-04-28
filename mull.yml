@@ -1,0 +1,7 @@
+# Mull mutation testing config.
+# Scopes mutation to the provider source; the fuzz harness, oracle,
+# mock, and replay driver are excluded from the mutation pool so the
+# score reflects assertion strength on the SUT only.
+
+includePaths:
+  - ".*src/infnoise_prov\\.c"

@@ -126,6 +126,136 @@ static int oracle_generate(OracleSpill *sp, uint8_t *out, size_t need,
 }
 
 // ---------------------------------------------------------------------------
+// Deterministic assertion drives.
+//
+// These run once per LLVMFuzzerTestOneInput call after the oracle's
+// byte-level invariants have been checked.  They cover provider surface
+// the oracle alone cannot reach: get_ctx_params type-tag handling,
+// get_seed entropy/length contract, strength-rejection at the boundary,
+// and NULL-ctx handling on the lifecycle entry points.
+//
+// Inputs are fixed (independent of fuzzer bytes) so the corpus does not
+// need to evolve to cover them - they execute on every iteration.
+// ---------------------------------------------------------------------------
+
+static const uint8_t kDriveEntropy[1024] = { 0 };
+
+static void run_assertion_drives(void *ctx,
+                                 const uint8_t *entropy,
+                                 size_t entropy_n)
+{
+    // Reseed the mock so get_seed has entropy independent of what the
+    // oracle just consumed.  Friendly mode (no chunk script) and a guaranteed-
+    // sufficient buffer keep these drives deterministic.
+    mock_set_chunk_script(NULL, 0);
+    mock_set_init_failure(0);
+    mock_set_fatal_after(0);
+    if (entropy_n >= 256)
+        mock_set_entropy(entropy, entropy_n);
+    else
+        mock_set_entropy(kDriveEntropy, sizeof(kDriveEntropy));
+
+    // get_ctx_params: full set on the live ctx.
+    int      state_v = -1;
+    unsigned str_v   = 0;
+    size_t   max_v   = 0;
+    OSSL_PARAM cp_full[] = {
+        OSSL_PARAM_int(OSSL_RAND_PARAM_STATE,          &state_v),
+        OSSL_PARAM_uint(OSSL_RAND_PARAM_STRENGTH,      &str_v),
+        OSSL_PARAM_size_t(OSSL_RAND_PARAM_MAX_REQUEST, &max_v),
+        OSSL_PARAM_END
+    };
+    if (!infnoise_rand_get_ctx_params(ctx, cp_full)) __builtin_trap();
+    if (str_v != INFNOISE_STRENGTH)                  __builtin_trap();
+    if (max_v == 0)                                  __builtin_trap();
+    if (state_v != EVP_RAND_STATE_READY
+        && state_v != EVP_RAND_STATE_ERROR
+        && state_v != EVP_RAND_STATE_UNINITIALISED)  __builtin_trap();
+
+    // Type-mismatched STATE param must be rejected (declared int, asked for utf8).
+    int        td = 0;
+    OSSL_PARAM cp_bad_state[] = {
+        { OSSL_RAND_PARAM_STATE, OSSL_PARAM_UTF8_PTR, &td, sizeof(td), 0 },
+        OSSL_PARAM_END
+    };
+    if (infnoise_rand_get_ctx_params(ctx, cp_bad_state))    __builtin_trap();
+
+    // Type-mismatched STRENGTH and MAX_REQUEST drive the other failure branches.
+    OSSL_PARAM cp_bad_str[] = {
+        { OSSL_RAND_PARAM_STRENGTH, OSSL_PARAM_UTF8_PTR, &td, sizeof(td), 0 },
+        OSSL_PARAM_END
+    };
+    if (infnoise_rand_get_ctx_params(ctx, cp_bad_str))      __builtin_trap();
+
+    OSSL_PARAM cp_bad_max[] = {
+        { OSSL_RAND_PARAM_MAX_REQUEST, OSSL_PARAM_UTF8_PTR, &td, sizeof(td), 0 },
+        OSSL_PARAM_END
+    };
+    if (infnoise_rand_get_ctx_params(ctx, cp_bad_max))      __builtin_trap();
+
+    // NULL ctx must be rejected.
+    if (infnoise_rand_get_ctx_params(NULL, cp_full))        __builtin_trap();
+
+    // get_seed exercises only on a READY ctx; on ERROR or UNINIT the call
+    // returns 0 by design, which would mask drive bugs.
+    if (state_v != EVP_RAND_STATE_READY)
+        return;
+
+    // get_seed: NULL pout returns 0.
+    if (infnoise_rand_get_seed(ctx, NULL, 0, 64, 64, 0, NULL, 0) != 0)
+        __builtin_trap();
+
+    // get_seed: zero-length returns 0.
+    unsigned char *p = NULL;
+    if (infnoise_rand_get_seed(ctx, &p, 0, 0, 0, 0, NULL, 0) != 0)
+        __builtin_trap();
+
+    // get_seed: max_len < min_len clamps the result to max_len.
+    p = NULL;
+    size_t got = infnoise_rand_get_seed(ctx, &p, 0, 64, 32, 0, NULL, 0);
+    if (got != 32)                                          __builtin_trap();
+    OPENSSL_secure_clear_free(p, got);
+
+    // get_seed: entropy == 8*len must accept (kills > -> >= mutation).
+    p = NULL;
+    got = infnoise_rand_get_seed(ctx, &p, 512, 64, 64, 0, NULL, 0);
+    if (got != 64)                                          __builtin_trap();
+    OPENSSL_secure_clear_free(p, got);
+
+    // get_seed: entropy > 8*len must reject without touching *pout.
+    p = (unsigned char *)(uintptr_t)0xDEADBEEFUL;
+    got = infnoise_rand_get_seed(ctx, &p, 600, 64, 64, 0, NULL, 0);
+    if (got != 0)                                           __builtin_trap();
+    if (p != (unsigned char *)(uintptr_t)0xDEADBEEFUL)      __builtin_trap();
+
+    // get_seed: tiny len catches '8u * len' -> '8u / len' (8>1 vs 8>64).
+    p = NULL;
+    got = infnoise_rand_get_seed(ctx, &p, 8, 8, 8, 0, NULL, 0);
+    if (got != 8)                                           __builtin_trap();
+    OPENSSL_secure_clear_free(p, got);
+}
+
+static void run_strength_boundary_drive(void)
+{
+    // A fresh ctx so we don't disturb the main test's ctx state.
+    void *c2 = infnoise_rand_newctx(NULL, NULL, NULL);
+    if (c2 == NULL) return;
+
+    // strength > INFNOISE_STRENGTH must reject (line 220 mutants).
+    if (infnoise_rand_instantiate(c2, INFNOISE_STRENGTH + 1u,
+                                  0, NULL, 0, NULL))
+        __builtin_trap();
+
+    // strength == INFNOISE_STRENGTH must accept on the same ctx.
+    if (!infnoise_rand_instantiate(c2, INFNOISE_STRENGTH,
+                                   0, NULL, 0, NULL))
+        __builtin_trap();
+
+    infnoise_rand_uninstantiate(c2);
+    infnoise_rand_freectx(c2);
+}
+
+// ---------------------------------------------------------------------------
 // Fuzz entry point.
 // ---------------------------------------------------------------------------
 
@@ -184,17 +314,24 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     mock_set_init_failure(fail_init);
     mock_set_fatal_after(fatal_read ? 1u : 0u);
 
-    // Exercise the parent-check error path occasionally.
+    // newctx must reject a non-NULL parent (seed sources must not chain).
     void *fake_parent = bad_parent ? (void *)(uintptr_t)0xDEAD : NULL;
     void *ctx = infnoise_rand_newctx(NULL, fake_parent, NULL);
-    if (!ctx) { free(expected); goto done; }
+    if (bad_parent) {
+        if (ctx != NULL) __builtin_trap();
+        free(expected);
+        goto done;
+    }
+    // OPENSSL_zalloc has no reason to fail under the mock; treat NULL as a bug.
+    if (!ctx) __builtin_trap();
 
     if (do_locking)
         infnoise_rand_enable_locking(ctx);
 
     if (!infnoise_rand_instantiate(ctx, INFNOISE_STRENGTH, 0, NULL, 0, NULL)) {
-        // Instantiate-failure path is intentional when fail_init is set;
-        // the harness oracle would also fail here.  Skip generate.
+        // Failure is only expected when the mock was told to inject one.
+        // Anything else is a bug (e.g., a strength-check mutation).
+        if (!fail_init) __builtin_trap();
         free(expected);
         infnoise_rand_freectx(ctx);
         goto done;
@@ -258,19 +395,26 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             if (actual[j] != 0) __builtin_trap();
     }
 
+    // Drive surfaces the oracle does not exercise: params, get_seed, and
+    // the strength boundary on a sibling ctx.  Done while the lock is still
+    // held - none of these acquire the lock internally.
+    run_assertion_drives(ctx, entropy, entropy_n);
+    run_strength_boundary_drive();
+
     if (do_locking)
         infnoise_rand_unlock(ctx);
 
-    // Cycle through uninstantiate -> verify_zeroization.  After uninstantiate
-    // the spill buffer is cleansed and verify returns 1 (success branch).
-    // To also cover the "non-zero spill" failure branch, poke a byte into
-    // the spill, then call verify a second time; the harness must know the
-    // PROV_INFNOISE layout, which it does (via the #include).
-    infnoise_rand_uninstantiate(ctx);
-    (void)infnoise_rand_verify_zeroization(ctx);  // success branch
+    // Uninstantiate -> verify cycle: clean ctx returns 1, dirty returns 0.
+    if (!infnoise_rand_uninstantiate(ctx))             __builtin_trap();
+    if (!infnoise_rand_verify_zeroization(ctx))        __builtin_trap();
     ((PROV_INFNOISE *)ctx)->spill.data[0] = 0xFF;
-    (void)infnoise_rand_verify_zeroization(ctx);  // failure branch
+    if (infnoise_rand_verify_zeroization(ctx))         __builtin_trap();
     ((PROV_INFNOISE *)ctx)->spill.data[0] = 0x00;
+
+    // NULL ctx must be safe on every lifecycle entry point.
+    if (infnoise_rand_uninstantiate(NULL))             __builtin_trap();
+    if (infnoise_rand_verify_zeroization(NULL))        __builtin_trap();
+    infnoise_rand_freectx(NULL);
 
     free(block);
     free(expected);
