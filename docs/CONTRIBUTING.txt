@@ -92,7 +92,6 @@ OSSL_PARAM surface must additionally pass:
   make fuzz FUZZ_CC=clang
   ./fuzz/fuzz_spill_oracle  -max_total_time=60   # differential oracle
   ./fuzz/fuzz_dispatch      -max_total_time=60   # state-machine
-  ./fuzz/fuzz_params        -max_total_time=60   # boundary cases
   ./fuzz/fuzz_ossl_params   -max_total_time=60   # param surface
   ./fuzz/fuzz_provider_init -max_total_time=60   # provider entry pts
   ./fuzz/fuzz_spill_oracle fuzz/regressions/phase3_short_read.bin

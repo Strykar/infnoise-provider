@@ -42,26 +42,13 @@ jobs:
       - name: Build fuzz targets
         run: make fuzz FUZZ_CC=clang
 
-      # Each fuzzer runs independently.  continue-on-error lets all five
+      # Each fuzzer runs independently.  continue-on-error lets all four
       # finish even if one finds a crash, so a single bug doesn't hide others.
-      - name: Run fuzz_params
-        id: fuzz_params
-        continue-on-error: true
-        run: |
-          mkdir -p fuzz/crashes
-          corpus=fuzz/corpus/fuzz_params
-          ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
-          UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_params \
-            -max_total_time="${FUZZ_SECONDS}" \
-            -artifact_prefix=fuzz/crashes/ \
-            -print_final_stats=1 \
-            $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
-
       - name: Run fuzz_dispatch
         id: fuzz_dispatch
         continue-on-error: true
         run: |
+          mkdir -p fuzz/crashes
           corpus=fuzz/corpus/fuzz_dispatch
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
@@ -125,7 +112,6 @@ jobs:
       # Upload whatever crash files landed (crash-*, slow-*, oom-* prefixes).
       - name: Upload crash artifacts
         if: >
-          steps.fuzz_params.outcome        == 'failure' ||
           steps.fuzz_dispatch.outcome      == 'failure' ||
           steps.fuzz_ossl_params.outcome   == 'failure' ||
           steps.fuzz_spill_oracle.outcome  == 'failure' ||
@@ -136,12 +122,11 @@ jobs:
           path: fuzz/crashes/
           if-no-files-found: warn
 
-      # Fail the job after all five fuzzers have had a chance to run.
+      # Fail the job after all four fuzzers have had a chance to run.
       - name: Report results
         if: always()
         run: |
           failed=""
-          [ "${{ steps.fuzz_params.outcome }}"        = "failure" ] && failed="$failed fuzz_params"
           [ "${{ steps.fuzz_dispatch.outcome }}"      = "failure" ] && failed="$failed fuzz_dispatch"
           [ "${{ steps.fuzz_ossl_params.outcome }}"   = "failure" ] && failed="$failed fuzz_ossl_params"
           [ "${{ steps.fuzz_spill_oracle.outcome }}"  = "failure" ] && failed="$failed fuzz_spill_oracle"

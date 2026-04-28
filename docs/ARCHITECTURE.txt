@@ -246,12 +246,15 @@ Allocator-failure injection — tests/test_infnoise_alloc.c (make test-alloc):
 libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
 
   fuzz_dispatch        State-machine coverage across 4 ctx slots.
-  fuzz_params          Boundary cases for outlen / strength / addin.
+                       Drives 32-bit fuzzer-controlled outlen and
+                       strength (the ranges that fuzz_params used to
+                       cover separately).
   fuzz_ossl_params     OSSL_PARAM surface incl. type-mismatched arrays.
   fuzz_spill_oracle    Differential test against an in-harness
                        reference implementation of the spill-buffer
                        contract.  Found the phase-3 short-read
-                       memory disclosure (commit history).
+                       memory disclosure (commit history).  Also the
+                       Mull mutation testing target (mull.yml).
   fuzz_provider_init   OSSL_provider_init / query / get_params /
                        teardown.
 

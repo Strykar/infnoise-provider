@@ -312,8 +312,7 @@ FUZZ_CFLAGS = -g -O1 -Wall -Wextra \
 FUZZ_LDFLAGS = $(shell pkg-config --libs libcrypto) \
                $(FUZZ_DIR)/mock_libinfnoise.o
 
-FUZZ_TARGETS = $(FUZZ_DIR)/fuzz_params \
-               $(FUZZ_DIR)/fuzz_dispatch \
+FUZZ_TARGETS = $(FUZZ_DIR)/fuzz_dispatch \
                $(FUZZ_DIR)/fuzz_ossl_params \
                $(FUZZ_DIR)/fuzz_spill_oracle \
                $(FUZZ_DIR)/fuzz_provider_init

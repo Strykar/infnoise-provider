@@ -32,13 +32,12 @@ for hardware tests; pure-API tests run without the device.
   # Static analysis (cppcheck + gcc -fanalyzer)
   make lint
 
-  # libFuzzer harness suite — 5 targets under fuzz/.  Builds with
+  # libFuzzer harness suite — 4 targets under fuzz/.  Builds with
   # -fsanitize=fuzzer,address,undefined; uses fuzz/mock_libinfnoise.c
   # so no USB device is needed.
   make fuzz FUZZ_CC=clang
   ./fuzz/fuzz_spill_oracle  -max_total_time=60
   ./fuzz/fuzz_dispatch      -max_total_time=60
-  ./fuzz/fuzz_params        -max_total_time=60
   ./fuzz/fuzz_ossl_params   -max_total_time=60
   ./fuzz/fuzz_provider_init -max_total_time=60
 

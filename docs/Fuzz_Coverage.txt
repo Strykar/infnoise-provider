@@ -30,18 +30,16 @@ measured 2026-04-26 after PRs #10, #11, #12 merged.
 2. HARNESSES
 ------------
 
-Five libFuzzer harnesses live under fuzz/.  Each builds with
+Four libFuzzer harnesses live under fuzz/.  Each builds with
 -fsanitize=fuzzer,address,undefined and links against fuzz/mock_libinfnoise.o
 in place of real libinfnoise (no USB device needed).
 
   fuzz_dispatch        State-machine harness.  The fuzzer drives a sequence
                        of dispatch operations (newctx, instantiate, generate,
-                       get_seed, etc.) on up to 4 context slots; the harness
-                       checks the provider survives any ordering.
-
-  fuzz_params          Boundary harness.  Single-context lifecycle with
-                       fuzzer-controlled strength, outlen, and addin sizes;
-                       exercises spill-buffer phase boundaries.
+                       get_seed, etc.) on up to 4 context slots with
+                       fuzzer-controlled 32-bit outlen and strength; the
+                       harness checks the provider survives any ordering and
+                       any boundary value.
 
   fuzz_ossl_params     OSSL_PARAM surface.  Drives get_ctx_params with full,
                        partial, NULL, and type-mismatched arrays across
@@ -53,7 +51,8 @@ in place of real libinfnoise (no USB device needed).
                        provider and an in-harness oracle against the same
                        script.  Asserts byte-for-byte equality plus output-
                        buffer cleanse-on-failure.  This harness found the
-                       phase-3 short-read memory disclosure.
+                       phase-3 short-read memory disclosure.  Also the Mull
+                       mutation testing target (mull.yml).
 
   fuzz_provider_init   Provider-level entry points.  Calls OSSL_provider_init
                        directly, walks the returned dispatch table, queries
@@ -168,21 +167,21 @@ the current libFuzzer harness set:
 6. REPRODUCING THE MEASUREMENT
 ------------------------------
 
-  # Build all five harnesses.
+  # Build all four harnesses.
   make fuzz FUZZ_CC=clang
 
   # Build coverage-instrumented variants alongside.
   COV='-O0 -g -fprofile-instr-generate -fcoverage-mapping \
        -I/usr/include/libftdi1 -I/usr/include/libusb-1.0'
   clang $COV -c fuzz/mock_libinfnoise.c -o fuzz/cov_mock.o
-  for h in fuzz_spill_oracle fuzz_dispatch fuzz_params fuzz_ossl_params \
+  for h in fuzz_spill_oracle fuzz_dispatch fuzz_ossl_params \
            fuzz_provider_init; do
       clang $COV -fsanitize=fuzzer fuzz/$h.c fuzz/cov_mock.o \
             -lcrypto -o fuzz/${h}_cov
   done
 
   # Run each for 60 seconds.
-  for h in fuzz_spill_oracle fuzz_dispatch fuzz_params fuzz_ossl_params \
+  for h in fuzz_spill_oracle fuzz_dispatch fuzz_ossl_params \
            fuzz_provider_init; do
       LLVM_PROFILE_FILE=/tmp/cov_${h}.profraw \
           ./fuzz/${h}_cov -max_total_time=60
@@ -191,10 +190,9 @@ the current libFuzzer harness set:
   # Merge and report.
   llvm-profdata merge -sparse /tmp/cov_*.profraw -o /tmp/cov.profdata
   llvm-cov report -show-functions \
-      -object fuzz/fuzz_spill_oracle_cov  -object fuzz/fuzz_dispatch_cov  \
-      -object fuzz/fuzz_params_cov        -object fuzz/fuzz_ossl_params_cov \
-      -object fuzz/fuzz_provider_init_cov \
-      -instr-profile=/tmp/cov.profdata    -sources src/infnoise_prov.c
+      -object fuzz/fuzz_spill_oracle_cov   -object fuzz/fuzz_dispatch_cov  \
+      -object fuzz/fuzz_ossl_params_cov    -object fuzz/fuzz_provider_init_cov \
+      -instr-profile=/tmp/cov.profdata     -sources src/infnoise_prov.c
 
   # Per-line annotation of uncovered code.
   llvm-cov show -object … -instr-profile=/tmp/cov.profdata \

@@ -48,14 +48,12 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ### Added
 
-- Five-target libFuzzer harness suite under `fuzz/`: `fuzz_dispatch` (state
-  machine), `fuzz_params` (boundary cases), `fuzz_ossl_params` (OSSL_PARAM
-  surface), `fuzz_spill_oracle` (differential test against an in-harness
-  reference; this is what found the phase-3 bug), `fuzz_provider_init`
-  (`OSSL_provider_init` / query / get_params / teardown). Mock libinfnoise
-  stub so no USB device is needed. Coverage 280/286 lines (97.9%) with
-  22 of 23 functions ≥ 90% line coverage. See
-  [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
+- Four-target libFuzzer harness suite under `fuzz/`: `fuzz_dispatch` (state
+  machine), `fuzz_ossl_params` (OSSL_PARAM surface), `fuzz_spill_oracle`
+  (differential test against an in-harness reference; this is what found
+  the phase-3 bug), `fuzz_provider_init` (`OSSL_provider_init` / query /
+  get_params / teardown). Mock libinfnoise stub so no USB device is
+  needed. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
   ([#9](https://github.com/Strykar/infnoise-provider/pull/9))
 - Persistent fuzz corpus committed under `fuzz/corpus/<harness>/` (~505
   inputs, ~2 MiB) so each CI / local fuzz run starts from accumulated
@@ -170,6 +168,12 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 - The old `(char *)(uintptr_t)kInfnoiseSerial` round-trip cast (the
   `(uintptr_t)` part was a no-op for the current `NULL` value).
   ([#11](https://github.com/Strykar/infnoise-provider/pull/11))
+- `fuzz_params.c` harness and its 80-input corpus. The boundary-fuzzing
+  surface (32-bit `outlen` and `strength`, addin pass-through, linear
+  newctx → instantiate → generate → teardown flow) was already covered
+  by `fuzz_dispatch`'s state-machine fuzzer with 32-bit op parameters.
+  No regression input pointed to `fuzz_params`. CIFuzz now runs four
+  targets per push instead of five.
 
 ### Fixed
 
