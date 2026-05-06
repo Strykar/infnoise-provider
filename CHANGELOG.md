@@ -9,7 +9,6 @@ Pre-1.0 versions remain incompatible-by-default; see the alpha-status note in
 [README.md](README.md). The first signed release is gated on the external
 cryptographic review described in [docs/Security_Review.txt](docs/Security_Review.txt).
 
-
 ## [Unreleased]
 
 ### Security
@@ -107,6 +106,21 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   score-before vs score-after on the touched files is the audit
   signal. Documented in [docs/CONTRIBUTING.txt](docs/CONTRIBUTING.txt) §4
   under "Optional, release-prep only".
+- `examples/python_demo.py` — Python keygen via the `cryptography`
+  package, demonstrating that any libcrypto-backed Python operation
+  picks up the provider when `OPENSSL_CONF` points at the bundled
+  config. Validated in a containerised build with USB device
+  passthrough.
+- `examples/systemd-drop-in.conf` — systemd drop-in that scopes
+  `OPENSSL_CONF` to a single service (nginx, sshd, postfix, etc.),
+  leaving the rest of the host on its default RNG. Validated by
+  installing under `/etc/systemd/system/<unit>.service.d/`,
+  `systemd-analyze verify` passes, the service runs `openssl rand`
+  through the dropped-in config.
+- [docs/FAQ.txt](docs/FAQ.txt) — six questions covering provider vs.
+  ENGINE, provider vs. `/dev/hwrng` + rngd, TLS speed, daemon
+  coexistence, runtime device-unplug recovery, and when the kernel
+  CSPRNG is the right choice instead of this provider.
 
 ### Changed
 
@@ -185,13 +199,11 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   delegation to OpenSSL and are exercised by the sanitiser test
   suite, not the fuzzer). ([#9](https://github.com/Strykar/infnoise-provider/pull/9))
 
-
 ## [0.0.1-alpha] - 2026-04-12
 
 Initial alpha release. The provider implements `OSSL_OP_RAND` for
 OpenSSL 3.x backed by the Infinite Noise TRNG. See README for the
 detailed feature inventory at this snapshot.
-
 
 [Unreleased]: https://github.com/Strykar/infnoise-provider/compare/v0.0.1-alpha...HEAD
 [0.0.1-alpha]: https://github.com/Strykar/infnoise-provider/releases/tag/v0.0.1-alpha

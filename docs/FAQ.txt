@@ -1,0 +1,115 @@
+================================================================================
+        Infinite Noise TRNG — OpenSSL 3.x Provider: FAQ
+================================================================================
+
+Short answers to the questions that come up most often.  See README.md
+for setup, docs/ARCHITECTURE.txt for design, docs/Security_Review.txt
+for the threat model.
+
+
+1. Why a provider instead of an ENGINE?
+---------------------------------------
+
+Providers are the OpenSSL 3.x replacement for ENGINEs.  ENGINEs are
+deprecated in 3.x and slated for removal; the provider API exposes a
+richer dispatch table and fits the new internal architecture.  This
+project ships only a provider.  The original waywardgeek/infnoise
+repository carried an OpenSSL 1.x ENGINE for the same hardware; that
+ENGINE is unrelated to this codebase and unmaintained against 3.x.
+
+
+2. Why use this instead of /dev/hwrng + rngd?
+---------------------------------------------
+
+Different layer.  /dev/hwrng is the kernel's character device for
+whatever hardware RNG the kernel knows about; rngd reads from it and
+feeds the kernel CSPRNG, which is what /dev/random and getrandom()
+expose.  This provider sits one layer up: it inserts entropy directly
+into a single process's OpenSSL RAND, bypassing the kernel CSPRNG for
+that process.
+
+Use cases differ:
+  - rngd:               whole-system, every CSPRNG consumer benefits.
+  - infnoise-provider:  per-process, scoped via OPENSSL_CONF to one
+                        service.
+
+Both can run on the same host but not against the same physical
+device at the same time.  See §4.
+
+
+3. Will using this slow down TLS?
+---------------------------------
+
+The Infnoise device produces ~32 KiB/s of conditioned entropy after
+Keccak whitening.  Typical TLS handshake RNG demand is on the order
+of 32-64 bytes (ECDHE / ephemeral keys / nonces) plus an RSA or EC
+keygen if a fresh server cert is being made.  At 32 KiB/s that's
+about 2 ms of device read per handshake's entropy worth, plus USB
+latency on the order of 1-2 ms.  Not noticeable for a low-rate
+handshake server.
+
+For high-concurrency workloads the device can become a bottleneck.
+The default config (conf/infnoise-provider.cnf) avoids this by
+configuring infnoise as the *seed source* for OpenSSL's CTR-DRBG, not
+the direct RAND.  The DRBG amplifies the seed throughput; the device
+is only consulted on (re)seed, not on every byte.
+
+
+4. Can I run rngd at the same time?
+-----------------------------------
+
+The Infnoise device is a USB serial bridge with exclusive open
+semantics.  Only one process can hold the FTDI handle at a time.  If
+rngd is configured against /dev/ttyUSBN, it owns the device and the
+provider cannot open it.  Two solutions:
+
+  - Plug in a second Infnoise device.  The kernel exposes each as a
+    distinct ttyUSB; the provider's kInfnoiseSerial constant in
+    src/infnoise_prov.c can be set to bind to a specific serial.
+  - Pick one role.  rngd for whole-system seeding, OR the provider
+    for a specific service.  In practice the provider's per-service
+    scoping is more useful when only one service has a real
+    requirement for an audited hardware path.
+
+
+5. What happens if the device is unplugged at runtime?
+------------------------------------------------------
+
+The next failed read inside infnoise_rand_generate transitions the
+context to EVP_RAND_STATE_ERROR and returns 0.  Subsequent generate()
+calls keep returning 0 until the context is reset.
+
+Recovery: the caller calls EVP_RAND_uninstantiate() then
+EVP_RAND_instantiate() again.  If the device was reattached and is
+healthy, instantiate succeeds and the context returns to READY.  The
+integration test test_evp_rand_lifecycle in
+tests/test_infnoise_prov.c exercises this transition.
+
+If the caller is OpenSSL's default DRBG seeding from infnoise, the
+DRBG itself will surface the failure as a generate-time error rather
+than silently fall back.
+
+
+6. Why not just trust the kernel CSPRNG?
+----------------------------------------
+
+For most use cases the kernel CSPRNG is more than adequate; it is
+seeded from /dev/hwrng plus jitter plus interrupts, and modern
+kernels gate user-space reads until it is properly initialised.
+
+Reasons to use this provider directly anyway:
+  - You distrust the kernel CSPRNG specifically and want a separate
+    audited path.
+  - You need per-service entropy provenance for compliance or audit
+    (FIPS-style, regulator, internal policy).
+  - You want demonstrable hardware entropy for one process, with a
+    paper trail (the provider's name/version/status are queryable
+    via OSSL_PROVIDER_get_params).
+  - Early-boot or virtualised-guest scenarios where the kernel
+    CSPRNG's initial seeding is uncertain.
+
+If none of those apply, the kernel CSPRNG is a fine default and this
+provider is overkill.
+
+
+================================================================================

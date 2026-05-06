@@ -8,17 +8,25 @@ signed release.
 
 Packaging
   [ ] AUR package (infnoise-provider-git and/or versioned)
-  [ ] examples/ — nginx OPENSSL_CONF snippet
-  [ ] examples/ — Python cryptography via OpenSSL
-  [ ] examples/ — systemd drop-in scoping provider to a single service
+  [x] examples/python_demo.py — Python cryptography keygen via OpenSSL.
+      Tested in a podman container with USB device passthrough; the
+      Python script generates a 2048-bit RSA key through libcrypto
+      seeded by the Infnoise provider.
+  [x] examples/systemd-drop-in.conf — systemd drop-in pattern that
+      scopes OPENSSL_CONF to a single service; covers the nginx case
+      explicitly and works for any unit.  Tested by installing under
+      /etc/systemd/system/<unit>.service.d/, systemd-analyze verify
+      passed, the service ran openssl rand through the drop-in
+      config.
   [ ] Signed git tags (git tag -s)
   [ ] Signed release tarballs + PGP fingerprint in README
       (signing model documented in docs/Governance.txt §3)
 
 
 Documentation
-  [ ] docs/FAQ.txt (Provider vs. ENGINE, vs. /dev/hwrng, TLS speed,
-      daemon coexistence)
+  [x] docs/FAQ.txt — Provider vs. ENGINE, vs. /dev/hwrng + rngd, TLS
+      speed, daemon coexistence, runtime unplug recovery, kernel
+      CSPRNG comparison.
   [x] Drop the INFNOISE_PATCHED compile-time bridge.  Provider now
       hard-requires the patched libinfnoise fork (per-context state,
       signed-rc readData); a #ifndef INFNOISE_KECCAK_STATE_SIZE /
@@ -43,10 +51,12 @@ CI and testing
   [x] GitHub Actions: ASan + UBSan sanitizer builds
   [x] GitHub Actions: cppcheck on push/PR
   [x] GitHub Actions: Coverity Scan (weekly cron)
-  [x] CIFuzz workflow — runs all 5 libFuzzer targets on every PR
+  [x] CIFuzz workflow — runs all 4 libFuzzer targets on every PR
       (60 s/target) and push (120 s/target); replays the regression
       inputs under fuzz/regressions/ before the timed runs so a
-      regression of a fixed bug fails fast.
+      regression of a fixed bug fails fast.  (Was 5 targets; the
+      fuzz_params boundary harness was retired as redundant with
+      fuzz_dispatch's state-machine sequencer.)
   [x] make test-tsan — ThreadSanitizer concurrency stress.
   [x] make test-alloc — allocator-failure injection (4 sites).
   [x] make sbom — SPDX-2.3 software bill of materials.
