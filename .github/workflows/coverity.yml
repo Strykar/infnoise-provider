@@ -17,9 +17,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config libssl-dev libftdi1-dev curl
-      - name: Build and install patched libinfnoise (Strykar fork)
+      - name: Build and install libinfnoise (waywardgeek upstream)
         run: |
-          git clone --depth 1 --branch libinfnoise-error-codes https://github.com/Strykar/infnoise /tmp/infnoise
+          git clone --depth 1 https://github.com/waywardgeek/infnoise /tmp/infnoise
           make -C /tmp/infnoise/software -f Makefile.linux \
             GIT_VERSION=ci GIT_COMMIT=ci GIT_DATE=ci libinfnoise.so
           sudo make -C /tmp/infnoise/software -f Makefile.linux \

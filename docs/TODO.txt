@@ -28,10 +28,11 @@ Documentation
       speed, daemon coexistence, runtime unplug recovery, kernel
       CSPRNG comparison.
   [x] Drop the INFNOISE_PATCHED compile-time bridge.  Provider now
-      hard-requires the patched libinfnoise fork (per-context state,
-      signed-rc readData); a #ifndef INFNOISE_KECCAK_STATE_SIZE /
-      #error guards the build.  README "Requirements" updated; the
-      two unpatched-related "Known limitations" bullets removed.
+      hard-requires per-context state and signed-rc readData; a
+      #ifndef INFNOISE_KECCAK_STATE_SIZE / #error guards the build.
+      Both patches merged into waywardgeek/infnoise master on
+      2026-05-15 (#121, #122); any libinfnoise built from upstream
+      master onwards satisfies the build.
   [x] docs/Fuzz_Coverage.txt — per-function coverage report (97.9%).
   [x] docs/Security_Review.txt — brief for an external cryptographic
       reviewer covering scope, threat model, and six concrete claims
@@ -78,10 +79,11 @@ Release discipline
       [x] 24 h endurance run green (2026-04-24: 14698 generate calls,
           4.21 GiB, 49.9 KiB/s, 0 errors, 95 churn cycles, RSS +1.2 MiB
           peak, ended -1.0 MiB below start; see issue #8 and README)
-      [x] Patched-libinfnoise dependency resolved.  Strykar/infnoise
-          fork carries the per-context-state and signed-rc patches;
-          provider hard-requires it via #error.  No upstream-merge
-          dependency remains.
+      [x] libinfnoise dependency resolved upstream.  Per-context
+          Keccak/health state and signed-int32_t readData() merged
+          into waywardgeek/infnoise master on 2026-05-15 (#121, #122).
+          Provider's #ifndef INFNOISE_KECCAK_STATE_SIZE / #error
+          guard remains; no fork required.
       [ ] External cryptographic review per docs/Security_Review.txt
           (the only outstanding gate)
 

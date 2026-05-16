@@ -141,13 +141,15 @@ discussion must resolve the conflict before code review begins.
 6. LIBINFNOISE REQUIREMENTS
 ---------------------------
 
-The provider hard-requires the patched libinfnoise fork (Strykar/infnoise
-on libinfnoise-error-codes), which provides per-context Keccak/health
-state and signed-int32_t readData.  Build will fail with a clear
-#error if linked against unpatched waywardgeek/infnoise.
+The provider hard-requires libinfnoise with per-context Keccak/health
+state and signed-int32_t readData.  Both patches merged into upstream
+waywardgeek/infnoise master on 2026-05-15 (#121, #122); any libinfnoise
+built from upstream master onwards satisfies the build.  Older
+libinfnoise builds (including any distro package that has not yet
+picked up those commits) fail with a clear #error.
 
 CI workflows (build / sanitizers / cifuzz / codeql / coverity) clone
-the patched fork branch directly.  See docs/ARCHITECTURE.txt §6.
+waywardgeek/infnoise master directly.  See docs/ARCHITECTURE.txt §6.
 
 
 7. SECURITY ANNOUNCEMENT FEEDS
@@ -163,8 +165,7 @@ affect the provider:
                        https://developer.intra2net.com/mailman/listinfo/libftdi
   libusb               libusb-devel@lists.sourceforge.net
                        https://sourceforge.net/p/libusb/mailman/libusb-devel/
-  libinfnoise          GitHub watch: Strykar/infnoise (patched fork) +
-                       waywardgeek/infnoise (upstream tracking)
+  libinfnoise          GitHub watch: waywardgeek/infnoise (upstream)
   Linux kernel         GitHub watch: linux distros' security tags;
                        relevant for FTDI driver (drivers/usb/serial/ftdi_sio.c)
 

@@ -43,7 +43,8 @@ informs the threat model in docs/Security_Review.txt.
   No signed release exists yet.  The first signed release is gated on:
 
     - 24-hour endurance run green       [done — see issue #8]
-    - libinfnoise patches in upstream   [done — Strykar/infnoise fork]
+    - libinfnoise patches in upstream   [done — waywardgeek/infnoise
+                                          master, #121 + #122, 2026-05-15]
     - External cryptographic review     [pending — see
                                           docs/Security_Review.txt]
 
@@ -86,5 +87,8 @@ informs the threat model in docs/Security_Review.txt.
 -------------
 
   2026-04-25  Initial governance document, post-Tier-A-E security audit.
+  2026-05-16  libinfnoise patches merged into waywardgeek/infnoise master
+              (#121, #122).  §3 release gate updated; provider builds
+              against upstream directly, no fork required.
 
 ================================================================================

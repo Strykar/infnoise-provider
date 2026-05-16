@@ -28,7 +28,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 ## Requirements
 
 - **OpenSSL 3.x** (tested with 3.4+)
-- **libinfnoise (patched fork)** and its dependency **libftdi1**.  The provider requires a libinfnoise build whose header defines `INFNOISE_KECCAK_STATE_SIZE` — per-context Keccak/health state and signed-`int32_t` `readData()` return.  The build will fail with a clear `#error` if linked against the unpatched [waywardgeek/infnoise](https://github.com/waywardgeek/infnoise) upstream.
+- **libinfnoise** and its dependency **libftdi1**.  The provider requires a libinfnoise build whose header defines `INFNOISE_KECCAK_STATE_SIZE` — per-context Keccak/health state and signed-`int32_t` `readData()` return.  Both patches merged into [waywardgeek/infnoise](https://github.com/waywardgeek/infnoise) master on 2026-05-15 ([#121](https://github.com/waywardgeek/infnoise/pull/121), [#122](https://github.com/waywardgeek/infnoise/pull/122)); any libinfnoise built from upstream master onwards works.  The build will fail with a clear `#error` if linked against an older libinfnoise.
 - **Infinite Noise TRNG** USB device connected
 - **GCC** with C11 support
 - **pkg-config** (used by the Makefile to locate libcrypto and libftdi1)
@@ -40,11 +40,10 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 # libftdi1 is in the official repos
 pacman -S libftdi openssl pkgconf
 
-# Patched libinfnoise from the Strykar/infnoise fork.
-# Upstream waywardgeek/infnoise (and any AUR package built from it)
-# is unpatched and will fail this provider's compile-time guard.
-git clone --branch libinfnoise-error-codes \
-    https://github.com/Strykar/infnoise /tmp/infnoise
+# libinfnoise from upstream master (carries the required patches as of
+# waywardgeek/infnoise#121 and #122).  Distro packages may lag until
+# they pick up a release tag containing those commits.
+git clone https://github.com/waywardgeek/infnoise /tmp/infnoise
 make -C /tmp/infnoise/software -f Makefile.linux libinfnoise.so
 sudo make -C /tmp/infnoise/software -f Makefile.linux PREFIX=/usr install-lib
 sudo ldconfig
@@ -55,9 +54,8 @@ sudo ldconfig
 ```sh
 apt install libftdi1-dev libssl-dev pkg-config build-essential
 
-# Patched libinfnoise from source — same Strykar/infnoise branch.
-git clone --branch libinfnoise-error-codes \
-    https://github.com/Strykar/infnoise /tmp/infnoise
+# libinfnoise from upstream master, same reason as above.
+git clone https://github.com/waywardgeek/infnoise /tmp/infnoise
 make -C /tmp/infnoise/software -f Makefile.linux libinfnoise.so
 sudo make -C /tmp/infnoise/software -f Makefile.linux PREFIX=/usr install-lib
 sudo ldconfig

@@ -124,11 +124,27 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ### Changed
 
-- Hard-require the patched libinfnoise fork (Strykar/infnoise on the
-  `libinfnoise-error-codes` branch) via `#ifndef
-  INFNOISE_KECCAK_STATE_SIZE / #error`. The patched fork provides
-  per-context Keccak/health state and signed-`int32_t` `readData()`.
-  All five CI workflows now clone the patched fork branch directly.
+- libinfnoise patches merged into upstream `waywardgeek/infnoise`
+  master on 2026-05-15
+  ([#121](https://github.com/waywardgeek/infnoise/pull/121) moved
+  Keccak / health state into the per-device context;
+  [#122](https://github.com/waywardgeek/infnoise/pull/122) added the
+  `infnoise_error_t` enum and switched `readData()` to signed
+  `int32_t`). The provider's `#ifndef INFNOISE_KECCAK_STATE_SIZE /
+  #error` guard is unchanged; the Strykar/infnoise fork is no longer
+  required, and the five CI workflows
+  (`build` / `cifuzz` / `codeql` / `coverity` / `sanitizers`) clone
+  `waywardgeek/infnoise` master directly. Docs swept:
+  [README.md](README.md) §Requirements + install snippets,
+  [docs/ARCHITECTURE.txt](docs/ARCHITECTURE.txt) §4 + §6,
+  [docs/CONTRIBUTING.txt](docs/CONTRIBUTING.txt) §6 + §7,
+  [docs/Governance.txt](docs/Governance.txt) §3 + §5,
+  [docs/TODO.txt](docs/TODO.txt) release gate.
+- Hard-require libinfnoise with per-context Keccak/health state and
+  signed-`int32_t` `readData()` via `#ifndef
+  INFNOISE_KECCAK_STATE_SIZE / #error`. Both properties are upstream
+  in `waywardgeek/infnoise` master (see entry above); older
+  libinfnoise builds fail with a clear `#error`.
 - Phase 3 of `infnoise_rand_generate` now loops on short reads from
   `infnoise_read_device`, mirroring phase 2. Previously it took only
   one read and returned (the source of the disclosure bug above).

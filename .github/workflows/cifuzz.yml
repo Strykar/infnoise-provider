@@ -27,12 +27,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             clang pkg-config libssl-dev libftdi1-dev
 
-      - name: Build and install patched libinfnoise (Strykar fork)
-        # The provider hard-requires the patched fork via #ifndef
-        # INFNOISE_KECCAK_STATE_SIZE / #error.  Cloning the right
-        # branch is the only thing that makes the build succeed.
+      - name: Build and install libinfnoise (waywardgeek upstream)
+        # The provider hard-requires per-context Keccak/health state and
+        # signed-int32_t readData() (the INFNOISE_KECCAK_STATE_SIZE /
+        # #error guard).  Both landed in upstream master via
+        # waywardgeek/infnoise#121 and #122 (2026-05-15).
         run: |
-          git clone --depth 1 --branch libinfnoise-error-codes https://github.com/Strykar/infnoise /tmp/infnoise
+          git clone --depth 1 https://github.com/waywardgeek/infnoise /tmp/infnoise
           make -C /tmp/infnoise/software -f Makefile.linux \
             GIT_VERSION=ci GIT_COMMIT=ci GIT_DATE=ci libinfnoise.so
           sudo make -C /tmp/infnoise/software -f Makefile.linux \

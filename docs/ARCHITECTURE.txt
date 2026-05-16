@@ -80,10 +80,9 @@ avoids a memcpy for large requests that are multiples of BATCH_SIZE.
 4. THREAD SAFETY
 ----------------
 
-libinfnoise (the patched fork required by this provider) holds Keccak
-and health-check state per-context, so multi-context concurrent use is
-limited only by FTDI USB exclusion — one open handle per physical
-device.  A single PROV_INFNOISE shared between threads is serialised
+libinfnoise (upstream master, post-#121) holds Keccak and health-check
+state per-context, so multi-context concurrent use is limited only by
+FTDI USB exclusion — one open handle per physical device.  A single PROV_INFNOISE shared between threads is serialised
 via CRYPTO_RWLOCK (allocated on enable_locking); the caller takes
 lock()/unlock() around dispatch entries that touch shared state.
 
@@ -145,19 +144,18 @@ sharing one context with locking, and 4 threads each owning a context.
 6. LIBINFNOISE REQUIREMENTS
 ---------------------------
 
-Upstream libinfnoise (waywardgeek/infnoise) holds its Keccak sponge and
-health-checker state in file-scope static variables, and readData()
-returns uint32_t with errors signalled via context->errorFlag.  Both
-properties prevent safe multi-context use and proper fatal-vs-transient
-error discrimination.
+Older libinfnoise (waywardgeek/infnoise before 2026-05-15) held its
+Keccak sponge and health-checker state in file-scope static variables,
+and readData() returned uint32_t with errors signalled via
+context->errorFlag.  Both properties prevented safe multi-context use
+and proper fatal-vs-transient error discrimination.
 
-This provider hard-requires the patched fork (Strykar/infnoise on the
-libinfnoise-error-codes branch as of 2026-04-25), which:
+Upstream master now carries both fixes:
 
-  * Moves Keccak / health-check state into the caller-provided
-    struct infnoise_context (per-context isolation).
-  * Adds the infnoise_error_t enum.
-  * Changes readData() return to int32_t — rc < 0 fatal (the value is
+  * waywardgeek/infnoise#121 moved Keccak / health-check state into
+    the caller-provided struct infnoise_context (per-context isolation).
+  * waywardgeek/infnoise#122 added the infnoise_error_t enum and
+    changed readData() return to int32_t — rc < 0 fatal (the value is
     the infnoise_error_t code), rc == 0 transient (retry), rc > 0 is
     bytes written.
 
@@ -165,12 +163,14 @@ The required marker is INFNOISE_KECCAK_STATE_SIZE.  src/infnoise_prov.c
 guards the build:
 
   #ifndef INFNOISE_KECCAK_STATE_SIZE
-  #  error "libinfnoise must be the patched fork ..."
+  #  error "libinfnoise must include per-context Keccak state ..."
   #endif
 
-The compile-time bridge that previously supported both libraries was
-removed; see commit history.  CI (build / sanitizers / cifuzz / codeql /
-coverity) clones Strykar/infnoise:libinfnoise-error-codes.
+Any libinfnoise built from waywardgeek/infnoise master (or a later
+release tag) satisfies the guard.  The compile-time bridge that
+previously supported the older library was removed; see commit
+history.  CI (build / sanitizers / cifuzz / codeql / coverity) clones
+waywardgeek/infnoise master directly.
 
 
 7. BUILD HARDENING
