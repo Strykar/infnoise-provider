@@ -41,7 +41,7 @@ ifeq ($(MODULESDIR),)
     MODULESDIR = /usr/lib/ossl-modules
 endif
 
-.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean sbom mutation mutation-clean
+.PHONY: all clean install install-man man test test-asan test-ubsan test-tsan test-alloc test-valgrind test-soak test-soak-short plot-soak lint fuzz fuzz-clean sbom mutation mutation-clean stub-libinfnoise
 
 all: $(TARGET_LIB)
 
@@ -95,6 +95,15 @@ test-ubsan: $(TESTDIR)/test_infnoise_prov.c $(SRCS)
 	    -o $(TARGET_LIB) $(SRCS) $(SAN_LIBS)
 	UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
 	    OPENSSL_MODULES=$(MODULESDIR) ./$(TEST_BIN)-ubsan
+
+# CI stub libinfnoise.so backed by /dev/urandom.  Used by the
+# python-demo workflow on GitHub runners (no Infnoise hardware
+# present).  Not for production: the output is the kernel CSPRNG.
+$(TESTDIR)/libinfnoise.so: $(TESTDIR)/stub_libinfnoise.c
+	$(CC) -fPIC -shared -O2 -Wall -Wextra $(PKG_CFLAGS) \
+	    $< -o $@
+
+stub-libinfnoise: $(TESTDIR)/libinfnoise.so
 
 # ThreadSanitizer: detects data races on the provider's per-context state
 # under concurrent EVP_RAND_CTX use.  Uses the fuzz mock libinfnoise so no

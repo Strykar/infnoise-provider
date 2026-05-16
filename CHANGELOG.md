@@ -109,8 +109,20 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 - `examples/python_demo.py` — Python keygen via the `cryptography`
   package, demonstrating that any libcrypto-backed Python operation
   picks up the provider when `OPENSSL_CONF` points at the bundled
-  config. Validated in a containerised build with USB device
-  passthrough.
+  config. Two pre-flight assertions fail closed before keygen runs:
+  `OPENSSL_CONF` must be set and `openssl list -providers` must show
+  `infnoise` active. Exercised on every push/PR by the new
+  `python-demo` GitHub Actions workflow, which links the provider
+  against a urandom-backed stub libinfnoise so the runner needs no
+  hardware.
+- `tests/stub_libinfnoise.c` — a CI-only libinfnoise drop-in that
+  satisfies the provider's link/runtime path by drawing bytes from
+  `/dev/urandom`. Built via `make stub-libinfnoise`. Not for
+  production: the output is the kernel CSPRNG, not the device.
+- `.github/workflows/python-demo.yml` — runs `examples/python_demo.py`
+  against the stub libinfnoise on every push/PR and asserts the
+  generated key parses with `openssl pkey`. A second step confirms
+  the pre-flight check fails closed when `OPENSSL_CONF` is unset.
 - `examples/systemd-drop-in.conf` — systemd drop-in that scopes
   `OPENSSL_CONF` to a single service (nginx, sshd, postfix, etc.),
   leaving the rest of the host on its default RNG. Validated by

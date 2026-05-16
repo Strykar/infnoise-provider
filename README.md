@@ -188,38 +188,38 @@ sudo usermod -aG plugdev $USER
 
 ## Project layout
 
-```
-infnoise-provider/
-  src/infnoise_prov.c        Provider implementation
-  tests/test_infnoise_prov.c  Test harness (28 tests)
-  tests/test_infnoise_tsan.c  ThreadSanitizer concurrency stress (make test-tsan)
-  tests/test_infnoise_alloc.c Allocator-failure injection test (make test-alloc)
-  tests/test_infnoise_soak.c  24-hour soak: drives EVP_RAND through every
-                             spill-buffer phase, cycles instantiate/
-                             uninstantiate, tracks RSS for leaks, dumps
-                             rolling samples for ent/rngtest/dieharder
-  fuzz/fuzz_*.c              5 libFuzzer harnesses (see docs/Fuzz_Coverage.txt)
-  fuzz/mock_libinfnoise.c    Hardware stub for fuzz/test builds
-  fuzz/corpus/<harness>/     Persistent fuzz corpus, committed for replay
-  fuzz/regressions/          Inputs that triggered fixed bugs (replayed by CI)
-  conf/infnoise-provider.cnf OpenSSL configuration
-  conf/openssl.supp          Valgrind suppressions
-  docs/ARCHITECTURE.txt       Design decisions and security analysis
-  docs/Build_Security.txt     Binary hardening + runtime security properties
-  docs/CONTRIBUTING.txt       Contribution guidelines
-  docs/Fuzz_Coverage.txt      Per-function fuzz coverage report
-  docs/OSSL_PROVIDER-infnoise.7.md
-                             Pandoc source for the section-7 manpage
-  docs/Security_Review.txt    Brief for an external cryptographic reviewer
-  docs/Testing.txt            Test harness layers and invocations
-  docs/TODO.txt               Deferred work toward beta
-  .github/                   Issue and pull-request templates
-  .editorconfig              Editor style rules
-  SECURITY.md                Vulnerability disclosure policy
-  CODE_OF_CONDUCT.md         Contributor Covenant 2.1
-  Makefile                   Build system
-  LICENSE                    GPL-2.0-or-later
-```
+| Path | Description |
+|---|---|
+| [`src/infnoise_prov.c`](src/infnoise_prov.c) | Provider implementation |
+| [`tests/test_infnoise_prov.c`](tests/test_infnoise_prov.c) | Integration test harness (28 tests) |
+| [`tests/test_infnoise_tsan.c`](tests/test_infnoise_tsan.c) | ThreadSanitizer concurrency stress (`make test-tsan`) |
+| [`tests/test_infnoise_alloc.c`](tests/test_infnoise_alloc.c) | Allocator-failure injection (`make test-alloc`) |
+| [`tests/test_infnoise_soak.c`](tests/test_infnoise_soak.c) | 24-hour soak: drives `EVP_RAND` through every spill-buffer phase, cycles instantiate/uninstantiate, tracks RSS for leaks, dumps rolling samples for `ent`/`rngtest`/`dieharder` |
+| [`fuzz/`](fuzz/) | 4 libFuzzer harnesses (see [`docs/Fuzz_Coverage.txt`](docs/Fuzz_Coverage.txt)) plus the mock libinfnoise stub for fuzz/test builds |
+| [`fuzz/corpus/`](fuzz/corpus/) | Persistent fuzz corpus per harness, committed for replay |
+| [`fuzz/regressions/`](fuzz/regressions/) | Inputs that triggered fixed bugs, replayed first by CIFuzz |
+| [`mutation/`](mutation/) + [`mull.yml`](mull.yml) | Mull mutation-testing harness (release-prep, `make mutation`) |
+| [`examples/`](examples/) | Drop-in usage examples (Python keygen, systemd scoping) |
+| [`conf/infnoise-provider.cnf`](conf/infnoise-provider.cnf) | OpenSSL configuration |
+| [`conf/openssl.supp`](conf/openssl.supp) | Valgrind suppressions |
+| [`docs/ARCHITECTURE.txt`](docs/ARCHITECTURE.txt) | Design decisions and security analysis |
+| [`docs/Build_Security.txt`](docs/Build_Security.txt) | Binary hardening + runtime security properties |
+| [`docs/CONTRIBUTING.txt`](docs/CONTRIBUTING.txt) | Contribution guidelines |
+| [`docs/FAQ.txt`](docs/FAQ.txt) | Common questions |
+| [`docs/Fuzz_Coverage.txt`](docs/Fuzz_Coverage.txt) | Per-function fuzz coverage report |
+| [`docs/Governance.txt`](docs/Governance.txt) | Maintainer model, authentication, signing-key plan |
+| [`docs/OSSL_PROVIDER-infnoise.7.md`](docs/OSSL_PROVIDER-infnoise.7.md) | Pandoc source for the section-7 manpage |
+| [`docs/Security_Review.txt`](docs/Security_Review.txt) | Brief for an external cryptographic reviewer |
+| [`docs/Testing.txt`](docs/Testing.txt) | Test harness layers and invocations |
+| [`docs/TODO.txt`](docs/TODO.txt) | Deferred work toward beta |
+| [`.github/`](.github/) | Issue and pull-request templates, CI workflows |
+| [`.editorconfig`](.editorconfig) | Editor style rules |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability disclosure policy |
+| [`CHANGELOG.md`](CHANGELOG.md) | Keep-a-Changelog 1.1.0 |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Shim pointing at `docs/CONTRIBUTING.txt` |
+| [`Makefile`](Makefile) | Build system |
+| [`LICENSE`](LICENSE) | GPL-2.0-or-later |
 
 ## Security
 

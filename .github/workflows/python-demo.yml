@@ -1,0 +1,60 @@
+name: python-demo
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  python-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config libssl-dev libftdi1-dev \
+            openssl python3 python3-cryptography
+
+      - name: Install libinfnoise.h from waywardgeek upstream
+        # Header only; the runtime libinfnoise.so is the stub built
+        # below (no Infnoise hardware on the runner).
+        run: |
+          git clone --depth 1 https://github.com/waywardgeek/infnoise /tmp/infnoise
+          sudo install -Dm 644 /tmp/infnoise/software/libinfnoise.h \
+            /usr/include/libinfnoise.h
+
+      - name: Build and install CI stub libinfnoise.so
+        run: |
+          make stub-libinfnoise
+          sudo install -Dm 755 tests/libinfnoise.so /usr/lib/libinfnoise.so
+          sudo ldconfig
+
+      - name: Build and install provider
+        run: |
+          make
+          sudo install -Dm 755 infnoise.so /usr/lib/ossl-modules/infnoise.so
+          sudo install -Dm 644 conf/infnoise-provider.cnf \
+            /etc/ssl/infnoise-provider.cnf
+
+      - name: Run examples/python_demo.py
+        run: |
+          OPENSSL_CONF=/etc/ssl/infnoise-provider.cnf \
+            python3 examples/python_demo.py > /tmp/key.pem
+          openssl pkey -in /tmp/key.pem -text -noout > /dev/null
+          echo "OK: generated key parses cleanly"
+
+      - name: Verify pre-flight fails closed without OPENSSL_CONF
+        # The script must exit non-zero when OPENSSL_CONF is unset.
+        # This is the regression guard for the new assertion.
+        run: |
+          if python3 examples/python_demo.py >/dev/null 2>&1; then
+            echo "FAIL: demo exited 0 with OPENSSL_CONF unset"
+            exit 1
+          fi
+          echo "OK: demo refuses to run without OPENSSL_CONF"

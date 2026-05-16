@@ -16,11 +16,47 @@
 # Run:
 #   OPENSSL_CONF=/path/to/infnoise-provider.cnf python3 python_demo.py
 #
-# Verify (in another terminal while this runs):
-#   ls /sys/bus/usb/devices/*/manufacturer  # finds the FTDI handle
-#   strace -p $(pidof python3) -e openat 2>&1 | grep -i ttyUSB
+# Two pre-flight checks fail closed before any keygen happens:
+#   1. OPENSSL_CONF is set (otherwise the provider was never loaded).
+#   2. libcrypto reports the infnoise provider is active (otherwise
+#      the keygen would silently fall back to the default RNG).
+#
+# Caveat: if the 'cryptography' package was pip-installed from a
+# manylinux wheel, it bundles its own libcrypto.  The pre-flight
+# check below probes the system libcrypto via the openssl CLI; on
+# distros where cryptography links against the same system libcrypto
+# (Arch python-cryptography, Debian python3-cryptography) the two
+# match.  With a pip wheel they may not, and the check can pass while
+# cryptography's own libctx still lacks the provider.
 
+import os
+import subprocess
 import sys
+
+
+def preflight() -> None:
+    if "OPENSSL_CONF" not in os.environ:
+        sys.exit("FAIL: OPENSSL_CONF is unset; see README for setup.")
+
+    try:
+        out = subprocess.run(
+            ["openssl", "list", "-providers"],
+            check=True, capture_output=True, text=True,
+        ).stdout
+    except FileNotFoundError:
+        sys.exit("FAIL: openssl CLI not on PATH.")
+    except subprocess.CalledProcessError as e:
+        sys.exit(f"FAIL: openssl list -providers exited {e.returncode}:\n{e.stderr}")
+
+    if "infnoise" not in out:
+        sys.exit("FAIL: 'infnoise' provider not loaded.  Check that\n"
+                 f"  OPENSSL_CONF={os.environ['OPENSSL_CONF']}\n"
+                 "points at a config that loads it, and that the\n"
+                 "provider .so is installed under OpenSSL's modules\n"
+                 "directory (openssl version -m).")
+
+
+preflight()
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
