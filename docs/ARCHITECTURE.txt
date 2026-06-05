@@ -131,6 +131,38 @@ sharing one context with locking, and 4 threads each owning a context.
     secure heap setup must precede ALL OpenSSL allocations process-
     wide; calling it from inside a provider would be too late.
 
+  Seed entropy accounting
+    get_seed sizes the seed by min-entropy, not by raw byte count.  The
+    OpenSSL DRBG credits the entropy it requested once it receives at
+    least min_len bytes, so the bytes returned must actually carry that
+    entropy.  The device's whitened output is NOT 8 min-entropy bits per
+    byte: at multiplier=2 the Keccak conditioning is 1:1, and the raw
+    noise source measures ~0.381 bits/bit under SP800-90B (restart-
+    validated), so an output byte carries ~3 min-entropy bits.  get_seed
+    therefore returns ceil(entropy / INFNOISE_MINENT_PER_OUTBYTE) bytes
+    (3 bits/byte, conservative), rounded up to a whole BATCH_SIZE device
+    block, e.g. 128 bytes (two blocks) to back a 256-bit request, not 32.
+    The whole-block rounding keeps the >= entropy guarantee rigorous: each
+    block is a full Keccak squeeze that carries its min-entropy whole by
+    per-block conservation, so it does not depend on any assumption about
+    how Keccak spreads entropy within a block.  A deterministic conditioner
+    cannot raise the per-byte min-entropy, so returning more bytes is the
+    only honest way to satisfy the DRBG's credit; adding a second
+    conditioner inside the provider would not help (it cannot exceed the
+    source rate).  If the needed length exceeds max_len it fails rather
+    than hand back an under-filled seed.  (Earlier versions returned
+    min_len bytes credited at 8 bits/byte, over-crediting a minimal seed
+    ~2.6x.)
+
+    Operator note: a CTR-DRBG configured WITHOUT a derivation function
+    (use_df=0) sets max_entropylen = seedlen (48 bytes for AES-256), below
+    the 128 a 256-bit seed needs, so get_seed now fails for that DRBG
+    rather than over-crediting it as before.  The default OpenSSL DRBGs use
+    a derivation function (max_entropylen is effectively unbounded), so
+    they are unaffected.  A no-df CTR-DRBG cannot reach 256-bit security
+    from a 0.38 bit/bit source in 48 bytes regardless; failing closed is
+    the honest outcome.
+
   Constant-time zeroization check
     verify_zeroization uses CRYPTO_memcmp against a zero buffer.  The
     compiler cannot optimise this away after OPENSSL_cleanse, unlike a

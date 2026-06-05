@@ -210,29 +210,42 @@ static void run_assertion_drives(void *ctx,
     if (infnoise_rand_get_seed(ctx, &p, 0, 0, 0, 0, NULL, 0) != 0)
         __builtin_trap();
 
-    // get_seed: max_len < min_len clamps the result to max_len.
+    // Reseed with a large buffer so the bigger seeds below have entropy.
+    mock_set_entropy(kDriveEntropy, sizeof(kDriveEntropy));
+
+    // get_seed credits min-entropy, not raw byte count: it returns
+    // ceil(entropy / INFNOISE_MINENT_PER_OUTBYTE) rounded UP to a whole
+    // BATCH_SIZE device block, so the seed is whole Keccak squeezes that carry
+    // the entropy the DRBG credits it.  256 bits -> ceil(256/3)=86 -> 128
+    // bytes (2 blocks).
     p = NULL;
-    size_t got = infnoise_rand_get_seed(ctx, &p, 0, 64, 32, 0, NULL, 0);
-    if (got != 32)                                          __builtin_trap();
+    size_t got = infnoise_rand_get_seed(ctx, &p, 256, 32, 256, 0, NULL, 0);
+    if (got != 128)                                         __builtin_trap();
     OPENSSL_secure_clear_free(p, got);
 
-    // get_seed: entropy == 8*len must accept (kills > -> >= mutation).
-    p = NULL;
-    got = infnoise_rand_get_seed(ctx, &p, 512, 64, 64, 0, NULL, 0);
-    if (got != 64)                                          __builtin_trap();
-    OPENSSL_secure_clear_free(p, got);
+    // Block-rounding boundary: 192 bits -> ceil(192/3)=64 = exactly 1 block;
+    // 193 bits -> ceil(193/3)=65 -> rounds up to 2 blocks (128).  min_len=1 so
+    // the entropy term drives; kills off-by-one in the ceil and the rounding.
+    p = NULL; got = infnoise_rand_get_seed(ctx, &p, 192, 1, 256, 0, NULL, 0);
+    if (got != 64)  __builtin_trap();  OPENSSL_secure_clear_free(p, got);
+    p = NULL; got = infnoise_rand_get_seed(ctx, &p, 193, 1, 256, 0, NULL, 0);
+    if (got != 128) __builtin_trap();  OPENSSL_secure_clear_free(p, got);
 
-    // get_seed: entropy > 8*len must reject without touching *pout.
+    // Entropy whose whole-block size exceeds max_len must reject without
+    // touching *pout (the seed would be over-credited otherwise).
     p = (unsigned char *)(uintptr_t)0xDEADBEEFUL;
-    got = infnoise_rand_get_seed(ctx, &p, 600, 64, 64, 0, NULL, 0);
+    got = infnoise_rand_get_seed(ctx, &p, 256, 32, 64, 0, NULL, 0);
     if (got != 0)                                           __builtin_trap();
     if (p != (unsigned char *)(uintptr_t)0xDEADBEEFUL)      __builtin_trap();
 
-    // get_seed: tiny len catches '8u * len' -> '8u / len' (8>1 vs 8>64).
-    p = NULL;
-    got = infnoise_rand_get_seed(ctx, &p, 8, 8, 8, 0, NULL, 0);
-    if (got != 8)                                           __builtin_trap();
-    OPENSSL_secure_clear_free(p, got);
+    // Small positive entropy still gets a whole block (64), and min_len=32
+    // does not undercut it.
+    p = NULL; got = infnoise_rand_get_seed(ctx, &p, 8, 32, 256, 0, NULL, 0);
+    if (got != 64) __builtin_trap();  OPENSSL_secure_clear_free(p, got);
+
+    // entropy <= 0: no entropy requirement, return the min_len floor unrounded.
+    p = NULL; got = infnoise_rand_get_seed(ctx, &p, 0, 32, 256, 0, NULL, 0);
+    if (got != 32) __builtin_trap();  OPENSSL_secure_clear_free(p, got);
 }
 
 static void run_strength_boundary_drive(void)

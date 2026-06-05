@@ -63,10 +63,21 @@ static const char *kInfnoiseSerial = NULL;
 static const bool kKeccak = true;
 static const bool kDebug = false;
 
-// Keccak-processed output from the Infinite Noise TRNG provides
-// full entropy: 8 bits per byte.  We claim 256 bits of security
-// strength, matching the Keccak sponge width.
+// We claim 256 bits of security strength.  The device is capable of it,
+// but its whitened output is NOT 8 bits of min-entropy per byte: at
+// multiplier=2 the Keccak conditioning is 1:1, and the raw noise source
+// measures ~0.381 bits/bit under SP800-90B (restart-validated), so an
+// output byte carries ~3 min-entropy bits.  get_seed accounts for this by
+// returning enough bytes to back the requested entropy; see
+// INFNOISE_MINENT_PER_OUTBYTE and infnoise_rand_get_seed.
 #define INFNOISE_STRENGTH 256u
+
+// Conservative min-entropy per whitened output byte, used to size get_seed
+// so the bytes it returns actually carry the entropy the DRBG credits them.
+// 0.381 bits/bit (SP800-90B, restart-validated) x 8 ~ 3 bits/byte, rounded
+// down for margin.  A deterministic conditioner cannot raise this above the
+// raw noise source's rate.
+#define INFNOISE_MINENT_PER_OUTBYTE 3u
 
 // Cap per-call generate size.  The device runs at ~40 KB/s over USB;
 // INT_MAX would block for days.  1 MiB is generous for any single
@@ -499,20 +510,41 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
     if (pout == NULL)
         return 0;
 
+    // The DRBG credits the entropy it requested once it receives at least
+    // min_len bytes, so to keep that credit honest the seed must actually
+    // carry `entropy` bits of min-entropy.  Each whitened output byte is worth
+    // at most INFNOISE_MINENT_PER_OUTBYTE min-entropy bits (the device
+    // conditions 1:1 at multiplier=2, raw source ~0.381 bits/bit), so a
+    // request for `entropy` bits needs entropy / INFNOISE_MINENT_PER_OUTBYTE
+    // bytes, NOT entropy / 8.  The earlier code used 8 and over-credited a
+    // minimal seed by ~2.6x.
+    //
+    // Round that up to a whole number of BATCH_SIZE device blocks.  Each block
+    // is a full Keccak squeeze that carries its min-entropy whole by per-block
+    // conservation; a partial trailing block would have a weak worst-case
+    // min-entropy bound (its bytes could in principle carry less than their
+    // share unless one assumes Keccak spreads entropy uniformly within a
+    // block).  Whole blocks make the >= entropy guarantee rigorous with no such
+    // assumption.  So 256 bits -> ceil(256/3)=86 -> 128 bytes (2 blocks).
     size_t len = min_len;
-    if (max_len < len)
-        len = max_len;
+    if (entropy > 0) {
+        size_t need = ((size_t)entropy + INFNOISE_MINENT_PER_OUTBYTE - 1u)
+                      / INFNOISE_MINENT_PER_OUTBYTE;
+        need = ((need + BATCH_SIZE - 1u) / BATCH_SIZE) * BATCH_SIZE;
+        if (need > len)
+            len = need;
+    }
     if (len == 0)
         return 0;
 
-    // The TRNG delivers full entropy (8 bits per byte after Keccak whitening),
-    // so the largest entropy a buffer of `len` bytes can carry is 8*len bits.
-    // Reject requests that ask for more than the buffer can hold rather than
-    // silently undershoot the caller's contract.
-    if (entropy > 0 && (size_t)entropy > 8u * len) {
+    // If the caller's length ceiling is below what the requested entropy needs,
+    // the seed would carry less entropy than the DRBG credits it.  Fail rather
+    // than hand back an under-filled seed.
+    if (len > max_len) {
         ERR_raise_data(ERR_LIB_PROV, ERR_R_PASSED_INVALID_ARGUMENT,
-                       "requested %d bits but max buffer holds %zu",
-                       entropy, 8u * len);
+                       "need %zu bytes to back %d entropy bits at %u bits/byte, "
+                       "but max_len is %zu",
+                       len, entropy, INFNOISE_MINENT_PER_OUTBYTE, max_len);
         return 0;
     }
 
