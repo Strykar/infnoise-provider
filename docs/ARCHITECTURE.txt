@@ -145,7 +145,13 @@ sharing one context with locking, and 4 threads each owning a context.
     The whole-block rounding keeps the >= entropy guarantee rigorous: each
     block is a full Keccak squeeze that carries its min-entropy whole by
     per-block conservation, so it does not depend on any assumption about
-    how Keccak spreads entropy within a block.  A deterministic conditioner
+    how Keccak spreads entropy within a block.  Rounding the length is not
+    enough on its own: generate() drains the spill buffer first, so a prior
+    non-block-aligned generate() on the same context would make the seed
+    start mid-block (a slice of an old block, then whole blocks, then a slice
+    of a new one).  get_seed therefore flushes the spill before generating,
+    so the read produces whole ALIGNED blocks, not just a block-multiple
+    length.  A deterministic conditioner
     cannot raise the per-byte min-entropy, so returning more bytes is the
     only honest way to satisfy the DRBG's credit; adding a second
     conditioner inside the provider would not help (it cannot exceed the

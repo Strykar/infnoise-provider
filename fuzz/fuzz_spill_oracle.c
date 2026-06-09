@@ -246,6 +246,28 @@ static void run_assertion_drives(void *ctx,
     // entropy <= 0: no entropy requirement, return the min_len floor unrounded.
     p = NULL; got = infnoise_rand_get_seed(ctx, &p, 0, 32, 256, 0, NULL, 0);
     if (got != 32) __builtin_trap();  OPENSSL_secure_clear_free(p, got);
+
+    // Spill alignment (regression for the cross-call straddle Codex found on
+    // PR #21).  A non-block-aligned generate() leaves a partial block in the
+    // spill; get_seed() must flush it so the seed is whole aligned blocks, not
+    // a slice of an old block + a whole block + a slice of a new one (which is
+    // only one complete block, below the credited entropy in the worst case).
+    SpillBufferInit(&((PROV_INFNOISE *)ctx)->spill);
+    mock_set_entropy(kDriveEntropy, sizeof(kDriveEntropy));
+    {
+        uint8_t one[1];
+        if (!infnoise_rand_generate(ctx, one, 1, INFNOISE_STRENGTH, 0, NULL, 0))
+            __builtin_trap();
+        // generate(1) read a 64-byte block and stored the 63-byte remainder.
+        if (((PROV_INFNOISE *)ctx)->spill.length != 63)        __builtin_trap();
+        p = NULL;
+        got = infnoise_rand_get_seed(ctx, &p, 256, 32, 256, 0, NULL, 0);
+        if (got != 128)                                        __builtin_trap();
+        // get_seed flushed the spill and read whole aligned blocks, so the
+        // spill is empty.  Without the flush it would hold 63 bytes here.
+        if (((PROV_INFNOISE *)ctx)->spill.length != 0)         __builtin_trap();
+        OPENSSL_secure_clear_free(p, got);
+    }
 }
 
 static void run_strength_boundary_drive(void)

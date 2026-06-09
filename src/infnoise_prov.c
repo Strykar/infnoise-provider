@@ -526,6 +526,7 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
     // share unless one assumes Keccak spreads entropy uniformly within a
     // block).  Whole blocks make the >= entropy guarantee rigorous with no such
     // assumption.  So 256 bits -> ceil(256/3)=86 -> 128 bytes (2 blocks).
+    PROV_INFNOISE *ctx = (PROV_INFNOISE *)vctx;
     size_t len = min_len;
     if (entropy > 0) {
         size_t need = ((size_t)entropy + INFNOISE_MINENT_PER_OUTBYTE - 1u)
@@ -551,6 +552,18 @@ static size_t infnoise_rand_get_seed(void *vctx, unsigned char **pout,
     unsigned char *buf = OPENSSL_secure_malloc(len);
     if (buf == NULL)
         return 0;   // SECURITY: reviewed 2026-04-25 — *pout untouched.
+
+    // Drop any partial block left in the spill by a prior non-block-aligned
+    // generate() on this context.  generate()'s phase 1 drains the spill first,
+    // so without this the seed would start mid-block: a 1-byte generate() then
+    // a 256-bit get_seed() would return 63 spill bytes (a slice of an old
+    // block) + one whole block + 1 byte of a third, i.e. only ONE complete
+    // block.  That breaks the whole-block conservation argument above and can
+    // leave the seed's guaranteed min-entropy below what the DRBG credits.
+    // With the spill empty and len a multiple of BATCH_SIZE, generate() reads
+    // only fresh whole blocks (the device returns a full BATCH_SIZE squeeze per
+    // read at multiplier=2), so the seed is whole aligned blocks.
+    SpillBufferInit(&ctx->spill);
 
     if (!infnoise_rand_generate(vctx, buf, len, 0, prediction_resistance,
                                 adin, adin_len)) {
