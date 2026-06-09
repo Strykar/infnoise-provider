@@ -40,3 +40,4 @@ mutation/runner
 
 # Internal working notes (not for upstream)
 notes/
+cov/

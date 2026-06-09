@@ -11,6 +11,15 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (no-df CTR-DRBG only):** as a consequence of the `get_seed`
+  min-entropy fix below, a CTR-DRBG configured without a derivation function
+  (`use_df=0`, `max_entropylen = seedlen = 48` for AES-256) can no longer
+  instantiate from this provider at 256-bit strength: the seed now needs 128
+  bytes. It fails closed instead of silently under-seeding. DRBGs that use a
+  derivation function (the OpenSSL defaults) are unaffected.
+
 ### Security
 
 - Fix `get_seed` over-crediting the seed's min-entropy. The DRBG credits the

@@ -33,7 +33,7 @@ Documentation
       Both patches merged into waywardgeek/infnoise master on
       2026-05-15 (#121, #122); any libinfnoise built from upstream
       master onwards satisfies the build.
-  [x] docs/Fuzz_Coverage.txt — per-function coverage report (97.9%).
+  [x] docs/Fuzz_Coverage.txt — per-function coverage report (96.1%).
   [x] docs/Security_Review.txt — brief for an external cryptographic
       reviewer covering scope, threat model, and six concrete claims
       to verify.

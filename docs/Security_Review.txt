@@ -61,18 +61,29 @@ OpenSSL via OSSL_PROVIDER_load.  It links libcrypto, libftdi1, libinfnoise.
 3.1  256-bit security strength.
 
   The provider declares INFNOISE_STRENGTH = 256 via OSSL_RAND_PARAM_STRENGTH.
-  The justification (in docs/ARCHITECTURE.txt): the Modular Entropy Multiplier
-  produces ~0.864 bits of Shannon entropy per raw bit; Keccak-1600 absorbs
-  512 raw bits per round-trip and squeezes 512 whitened bits, retaining
-  1088 bits of hidden capacity.  256-bit strength is therefore comfortably
-  below the sponge's collision-resistance ceiling.
+  The strength a DRBG may claim is governed by the MIN-entropy of the seed,
+  not its Shannon entropy.  An independent SP800-90B assessment of the raw
+  noise source (multiplier=2, Keccak on) measured ~0.381 min-entropy bits per
+  raw bit, restart-validated (SP800-90B Section 3.1.4) — well below the ~0.864
+  Shannon bits/bit the Modular Entropy Multiplier design implies.  A
+  deterministic conditioner cannot raise min-entropy above its input, so a
+  single 64-byte Keccak squeeze (512 absorbed raw bits) carries at most ~195
+  min-entropy bits worst-case, NOT 256.
+
+  get_seed therefore backs a 256-bit request with two whole device blocks
+  (128 bytes, ~390 worst-case min-entropy bits), not one squeeze and not the
+  earlier 32-byte seed credited at 8 bits/byte.  The methodology, estimator
+  tables, and restart test that establish 0.381 bits/bit are documented in
+  the SP800-90B reproduction; see docs/ARCHITECTURE.txt ("Seed entropy
+  accounting") and the get_seed CHANGELOG entry.
 
   Reviewer:
-    - Is the entropy-per-raw-bit estimate sound for the INM topology?
-    - Does the multiplier=2 / keccak=true / BATCH_SIZE=64 configuration
-      actually deliver the claimed 256 bits per 64-byte squeeze?
-    - Are there published cryptanalytic concerns about the specific
-      Keccak parameters or the sponge construction at this rate?
+    - Is the 0.381 bits/bit min-entropy estimate sound for the INM topology,
+      and is the restart-test validation adequate?
+    - Is the conservative 3-min-entropy-bits-per-output-byte figure that
+      get_seed uses, with whole-block rounding, a sound lower bound?
+    - Are there published cryptanalytic concerns about the specific Keccak
+      parameters or the sponge construction at this rate?
 
 3.2  Cleanse-on-error invariant.
 
@@ -159,15 +170,15 @@ OpenSSL via OSSL_PROVIDER_load.  It links libcrypto, libftdi1, libinfnoise.
 
 Available to the reviewer:
 
-  - 5-harness libFuzzer suite (256.5 M inputs across the whole suite,
-    no findings post-fix).  Coverage 97.9% line, 22/23 functions ≥90%.
-    See docs/Fuzz_Coverage.txt for breakdown.
+  - 4-harness libFuzzer suite (no findings post-fix).  Coverage 96.1%
+    line (294/306), 23/23 functions executed.  See docs/Fuzz_Coverage.txt
+    for breakdown.
 
   - Differential oracle harness (fuzz/fuzz_spill_oracle.c) catches
     correctness bugs in the spill buffer logic, not just crashes.  This
     found the phase-3 short-read disclosure (fixed 2026-04-25).
 
-  - 28-test integration harness (make test) including statistical
+  - 29-test integration harness (make test) including statistical
     quality checks (monobit, byte distribution, runs, two-sample).
 
   - 24-hour endurance run: 14 698 generate calls, 4.21 GiB output, 0

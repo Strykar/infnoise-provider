@@ -55,6 +55,17 @@ Random Number Generation
   `unlock` dispatch entries; a single context is serialised with
   `CRYPTO_RWLOCK`.
 
+  As a DRBG seed source the provider sizes each seed by min-entropy,
+  not by raw byte count.  The whitened output carries about 3
+  min-entropy bits per byte (the raw noise source measures ~0.381
+  bits/bit under SP800-90B), so a 256-bit seed is two 64-byte device
+  blocks (128 bytes), not 32.  One consequence: a CTR-DRBG configured
+  WITHOUT a derivation function caps `max_entropylen` at the seed
+  length (48 bytes for AES-256) and so cannot instantiate from this
+  provider at 256-bit strength; it fails closed rather than under-seed.
+  The default DRBGs use a derivation function and are unaffected.  See
+  `docs/ARCHITECTURE.txt` for the accounting.
+
 
 CONFIGURATION
 =============
@@ -176,11 +187,12 @@ USB permissions
             GROUP="plugdev", MODE="0664", TAG+="uaccess"
 
 libinfnoise requirements
-:   The provider hard-requires the patched libinfnoise fork
-    (Strykar/infnoise on the *libinfnoise-error-codes* branch), which
-    holds Keccak/health state per-context and returns a signed
-    `int32_t` from `readData`.  Building against unpatched
-    waywardgeek/infnoise upstream fails at compile time with a
+:   The provider requires a libinfnoise whose header defines
+    `INFNOISE_KECCAK_STATE_SIZE`: per-context Keccak/health state and a
+    signed `int32_t` return from `readData`.  Both landed in
+    waywardgeek/infnoise master on 2026-05-15 (upstream PRs #121 and
+    #122), so any libinfnoise built from upstream master onwards works.
+    Building against an older libinfnoise fails at compile time with a
     clear `#error`.
 
 

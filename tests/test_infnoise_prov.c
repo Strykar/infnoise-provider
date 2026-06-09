@@ -1043,6 +1043,181 @@ static void test_ec_keygen(void)
     test_pass(name);
 }
 
+// A no-df CTR-DRBG seeded from the provider must fail to instantiate at
+// 256-bit strength.  The provider's get_seed needs ceil(256/3)=86 bytes
+// rounded up to a whole BATCH_SIZE block = 128 bytes to honestly back
+// 256 entropy bits, but a no-df CTR-DRBG caps max_entropylen at the
+// AES-256 seedlen (48 bytes).  128 > 48, so get_seed raises
+// ERR_R_PASSED_INVALID_ARGUMENT, returns 0, and the child fails closed
+// rather than crediting a short seed.
+//
+// The cipher is pinned to AES-256-CTR for two reasons: it makes the child's
+// own strength 256 so the 256-bit request clears the generic strength gate
+// (drbg.c) and actually reaches get_seed, and CTR-DRBG rejects instantiate
+// outright with PROV_R_MISSING_CIPHER when no cipher is set.  Without the
+// pin the request never exercises the entropy cap.
+//
+// A df=1 control with the SAME instantiated parent must succeed: the df path
+// sets max_entropylen to DRBG_MAX_LENGTH so the 128-byte seed fits.  Its
+// green proves the no-df failure is the entropy cap, not a dead parent, an
+// absent device, a bad cipher string, or a strength mismatch -- all of which
+// would make the control fail too.
+static void test_evp_rand_ctr_drbg_nodf_entropy_cap(void)
+{
+    const char *name = "evp_rand_ctr_drbg_nodf_entropy_cap";
+    if (!hw_detected) { test_skip(name, "no hardware"); return; }
+
+    OSSL_LIB_CTX *libctx = OSSL_LIB_CTX_new();
+    if (libctx == NULL) { test_fail(name, "OSSL_LIB_CTX_new failed"); return; }
+
+    OSSL_PROVIDER *dflt = OSSL_PROVIDER_load(libctx, "default");
+    OSSL_PROVIDER *prov = load_infnoise_provider(libctx, name);
+    if (prov == NULL) {
+        OSSL_PROVIDER_unload(dflt);
+        OSSL_LIB_CTX_free(libctx);
+        return;
+    }
+
+    int ok = 1;
+    EVP_RAND *parent_rand = EVP_RAND_fetch(libctx, "infnoise", NULL);
+    EVP_RAND *ctr_rand = EVP_RAND_fetch(libctx, "CTR-DRBG", NULL);
+    EVP_RAND_CTX *parent_ctx = NULL;
+    EVP_RAND_CTX *ctr_ctx = NULL;
+    EVP_RAND_CTX *ctrl_ctx = NULL;
+
+    if (parent_rand == NULL || ctr_rand == NULL) {
+        test_fail(name, "EVP_RAND_fetch failed (infnoise=%p CTR-DRBG=%p)",
+                  (void *)parent_rand, (void *)ctr_rand);
+        ok = 0;
+        goto out;
+    }
+
+    // The parent must be READY before any child pulls a seed: get_seed calls
+    // generate, which checks state == READY first.
+    parent_ctx = EVP_RAND_CTX_new(parent_rand, NULL);
+    if (parent_ctx == NULL) {
+        test_fail(name, "parent EVP_RAND_CTX_new failed");
+        ok = 0;
+        goto out;
+    }
+    if (!EVP_RAND_instantiate(parent_ctx, 256, 0, NULL, 0, NULL)) {
+        test_fail(name, "parent instantiate(256) failed");
+        ok = 0;
+        goto out;
+    }
+    if (EVP_RAND_get_state(parent_ctx) != EVP_RAND_STATE_READY) {
+        test_fail(name, "parent not READY after instantiate");
+        ok = 0;
+        goto out;
+    }
+
+    // No-df AES-256-CTR child seeded from the parent.
+    ctr_ctx = EVP_RAND_CTX_new(ctr_rand, parent_ctx);
+    if (ctr_ctx == NULL) {
+        test_fail(name, "child EVP_RAND_CTX_new failed");
+        ok = 0;
+        goto out;
+    }
+    {
+        int use_df = 0;
+        OSSL_PARAM params[3];
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_DRBG_PARAM_CIPHER,
+                                                      (char *)"AES-256-CTR", 0);
+        params[1] = OSSL_PARAM_construct_int(OSSL_DRBG_PARAM_USE_DF, &use_df);
+        params[2] = OSSL_PARAM_construct_end();
+        if (!EVP_RAND_CTX_set_params(ctr_ctx, params)) {
+            test_fail(name, "set_params(AES-256-CTR, use_df=0) failed");
+            ok = 0;
+            goto out;
+        }
+    }
+
+    // 256 bits needs 128 seed bytes; a no-df CTR-DRBG offers at most 48.
+    // get_seed returns 0 and instantiation must fail closed.
+    ERR_clear_error();
+    if (EVP_RAND_instantiate(ctr_ctx, 256, 0, NULL, 0, NULL)) {
+        test_fail(name, "no-df CTR-DRBG instantiate(256) unexpectedly "
+                  "succeeded; entropy cap not enforced");
+        ok = 0;
+        goto out;
+    }
+
+    // Confirm the failure is the seed entropy cap, not something unrelated.
+    // The provider's own raise (ERR_R_PASSED_INVALID_ARGUMENT, from
+    // infnoise_prov.c:545) sits at the bottom (oldest) of the stack; the
+    // CTR-DRBG wrapper pushes PROV_R_ERROR_RETRIEVING_ENTROPY on top.  This
+    // matches the ERR_peek_error()/ERR_GET_REASON idiom in
+    // test_evp_rand_error_codes.  ERR_GET_REASON preserves ERR_RFLAG_COMMON,
+    // so the comparison against ERR_R_PASSED_INVALID_ARGUMENT is exact.
+    {
+        int oldest = ERR_GET_REASON(ERR_peek_error());
+        int newest = ERR_GET_REASON(ERR_peek_last_error());
+        if (oldest != ERR_R_PASSED_INVALID_ARGUMENT) {
+            test_fail(name,
+                "expected oldest reason %d (ERR_R_PASSED_INVALID_ARGUMENT), "
+                "got %d (newest %d)",
+                ERR_R_PASSED_INVALID_ARGUMENT, oldest, newest);
+            ok = 0;
+            goto out;
+        }
+        if (newest != PROV_R_ERROR_RETRIEVING_ENTROPY)
+            printf("         note: top-of-stack reason %d, expected "
+                   "PROV_R_ERROR_RETRIEVING_ENTROPY (%d); wrapper code may "
+                   "differ on this OpenSSL build\n",
+                   newest, PROV_R_ERROR_RETRIEVING_ENTROPY);
+    }
+    ERR_clear_error();
+
+    // Positive df-contrast control: the SAME parent with use_df=1 must
+    // instantiate.  A df child's max_entropylen is DRBG_MAX_LENGTH, so the
+    // 128-byte seed fits.  A green here isolates the no-df failure to the
+    // 48-byte cap and rules out a dead parent, absent hardware, or a broken
+    // child config.
+    ctrl_ctx = EVP_RAND_CTX_new(ctr_rand, parent_ctx);
+    if (ctrl_ctx == NULL) {
+        test_fail(name, "df-contrast EVP_RAND_CTX_new failed");
+        ok = 0;
+        goto out;
+    }
+    {
+        int use_df = 1;
+        OSSL_PARAM params[3];
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_DRBG_PARAM_CIPHER,
+                                                      (char *)"AES-256-CTR", 0);
+        params[1] = OSSL_PARAM_construct_int(OSSL_DRBG_PARAM_USE_DF, &use_df);
+        params[2] = OSSL_PARAM_construct_end();
+        if (!EVP_RAND_CTX_set_params(ctrl_ctx, params)) {
+            test_fail(name, "df-contrast set_params(AES-256-CTR, use_df=1) "
+                      "failed");
+            ok = 0;
+            goto out;
+        }
+    }
+    ERR_clear_error();
+    if (!EVP_RAND_instantiate(ctrl_ctx, 256, 0, NULL, 0, NULL)) {
+        test_fail(name, "df-contrast instantiate(256) failed; no-df failure "
+                  "may not be the entropy cap");
+        ok = 0;
+        goto out;
+    }
+    if (EVP_RAND_get_state(ctrl_ctx) != EVP_RAND_STATE_READY) {
+        test_fail(name, "df-contrast child not READY after instantiate");
+        ok = 0;
+        goto out;
+    }
+
+out:
+    EVP_RAND_CTX_free(ctrl_ctx);
+    EVP_RAND_CTX_free(ctr_ctx);
+    EVP_RAND_CTX_free(parent_ctx);
+    EVP_RAND_free(ctr_rand);
+    EVP_RAND_free(parent_rand);
+    OSSL_PROVIDER_unload(prov);
+    OSSL_PROVIDER_unload(dflt);
+    OSSL_LIB_CTX_free(libctx);
+    if (ok) test_pass(name);
+}
+
 /////////////////////////////////////////////
 // Layer 4: Statistical quality checks
 /////////////////////////////////////////////
@@ -1499,6 +1674,7 @@ int main(void)
     test_rand_bytes();
     test_rsa_keygen();
     test_ec_keygen();
+    test_evp_rand_ctr_drbg_nodf_entropy_cap();
 
     section("Layer 4: Statistical quality");
     test_stat_monobit();
