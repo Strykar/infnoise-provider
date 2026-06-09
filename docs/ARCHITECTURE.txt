@@ -296,7 +296,7 @@ libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
   fuzz_provider_init   OSSL_provider_init / query / get_params /
                        teardown.
 
-  Coverage: 280/286 lines (97.9%), 22/23 functions ≥ 90% line cov.
+  Coverage: 294/306 lines (96.1%), 21/23 functions ≥ 90% line cov.
   Persistent corpus committed under fuzz/corpus/<harness>/; the two
   inputs that triggered fixed bugs live under fuzz/regressions/ and
   are replayed by CIFuzz on every PR.

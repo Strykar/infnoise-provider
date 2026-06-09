@@ -94,7 +94,7 @@ in place of real libinfnoise (no USB device needed).
   infnoise_rand_verify_zeroization        16/17   94.1%
   infnoise_read_device                    27/27  100.0%
   ----------------------------------------------------
-  TOTAL                                  295/305  96.7%
+  TOTAL                                  294/306  96.1%
 
 
 4. UNCOVERED LINES — AND WHY
@@ -139,7 +139,7 @@ failure injection is low.
 5. WHAT FUZZING DOES NOT COVER (BEYOND LINE COUNTS)
 ---------------------------------------------------
 
-Even at 97.9% line coverage, several categories of bug are out of reach of
+Even at 96.1% line coverage, several categories of bug are out of reach of
 the current libFuzzer harness set:
 
   Concurrency.        TSan and libFuzzer don't compose well.  Multi-threaded
