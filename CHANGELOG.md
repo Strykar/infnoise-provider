@@ -13,6 +13,31 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ### Security
 
+- Fix `get_seed` over-crediting the seed's min-entropy. The DRBG credits the
+  entropy it requested once it receives `min_len` bytes, so the returned bytes
+  must carry that entropy. The device's whitened output is not 8 min-entropy
+  bits per byte: at `multiplier=2` the Keccak conditioning is 1:1 and the raw
+  noise source measures ~0.381 bits/bit under SP800-90B (restart-validated), so
+  an output byte carries ~3 min-entropy bits. `get_seed` previously returned
+  `min_len` bytes credited at 8 bits/byte, so a 32-byte seed for a 256-bit DRBG
+  was backed by ~97 min-entropy bits, not 256, an over-credit of ~2.6x. It now
+  returns `ceil(entropy / INFNOISE_MINENT_PER_OUTBYTE)` bytes (3 bits/byte,
+  conservative) rounded up to a whole `BATCH_SIZE` device block, e.g. 128 bytes
+  (two blocks) for a 256-bit request, and flushes the spill buffer first so the
+  read produces whole *aligned* blocks. Whole blocks make the guarantee
+  rigorous: each block is a full Keccak squeeze that carries its min-entropy
+  whole by per-block conservation, with no assumption about how Keccak spreads
+  entropy within a block. (Rounding the length alone is not enough, because
+  `generate` drains the spill first, so a prior non-block-aligned `generate` on
+  the same context would otherwise make the seed straddle block boundaries.) When the needed length exceeds `max_len` it fails rather than
+  under-fill. A CTR-DRBG without a derivation function (`use_df=0`,
+  `max_entropylen = seedlen = 48` for AES-256) can no longer instantiate from
+  this provider at 256-bit strength, which is correct: 48 bytes cannot carry
+  256 min-entropy bits from a 0.38 bit/bit source, so failing closed beats the
+  old silent under-seed. Default df-based DRBGs are unaffected. The crediting
+  basis was the root cause, so no multiplier change fixes it. Found by
+  independent SP800-90B reproduction (conservation bound: a deterministic
+  conditioner cannot raise min-entropy above its input).
 - Fix phase-3 short-read memory disclosure in `infnoise_rand_generate`. When
   `infnoise_read_device` returned `n < remaining` in the tail phase, the
   function copied only `n` bytes and returned success, leaving the rest of
