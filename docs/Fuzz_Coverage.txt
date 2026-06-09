@@ -3,28 +3,29 @@
 ================================================================================
 
 Honest accounting of what fuzz testing exercises in src/infnoise_prov.c, what
-it doesn't, and why.  Numbers below are line coverage from a 60-second run
-of each harness against the persistent fuzz/corpus/<harness>/ seed pool,
-measured 2026-04-26 after PRs #10, #11, #12 merged.
+it doesn't, and why.  Numbers are line coverage from a 60-second run of each
+harness against the persistent fuzz/corpus/<harness>/ seed pool.
 
 
 1. SUMMARY
 ----------
 
   Total source functions: 23
-  Functions ≥90% line cov: 22
-  Functions <90% line cov:  1
-  Total source lines:     305
-  Lines covered:          295  (96.7%)
-  Lines uncovered:         10  (6 allocator-failure, 4 defensive-NULL)
+  Functions executed:     23  (100%)
+  Total source lines:     306
+  Lines covered:          294  (96.1%)
+  Lines uncovered:         12  (allocator-failure, defensive-NULL, and the
+                               two get_seed len==0 guards)
 
-  The percentage dropped slightly from 97.9% (pre-PR-10/11/12 measure)
-  as the source file grew by 19 lines for defensive NULL checks, an
-  entropy-parameter rejection in get_seed, and a verify_zeroization
-  scope extension.  The four new defensive returns are hard to reach
-  with fuzz inputs because they require violating the OpenSSL
-  framework's vctx / pout non-NULL guarantees, which the harnesses
-  (correctly) honour.
+  Re-measured 2026-06-09 (llvm-cov report, merged profile of all four
+  harnesses) after the get_seed min-entropy fix.  The file grew by the
+  whole-block sizing and spill-flush logic; get_seed moved to 33 lines
+  and ~88%, since its two len==0 guards are unreachable by fuzz (they
+  need min_len==0 together with entropy<=0).  The uncovered lines remain
+  the allocator-failure and defensive-NULL returns the harnesses
+  (correctly) cannot drive without violating OpenSSL's vctx / pout
+  non-NULL guarantees.  The earlier figures were 295/305 (96.7%) on
+  2026-04-26 and 280/286 (97.9%) before PRs #10/#11/#12.
 
 
 2. HARNESSES
@@ -63,6 +64,10 @@ in place of real libinfnoise (no USB device needed).
 3. PER-FUNCTION LINE COVERAGE
 -----------------------------
 
+  The get_seed row is from the 2026-06-09 re-measure; the other rows are
+  the 2026-04-26 snapshot (the get_seed fix touched only get_seed in
+  src/, so the rest are unchanged).
+
   function                                lines    %
   ----------------------------------------------------
   OSSL_provider_init                      11/12   91.7%
@@ -78,7 +83,7 @@ in place of real libinfnoise (no USB device needed).
   infnoise_rand_freectx                   10/10  100.0%
   infnoise_rand_generate                  54/54  100.0%
   infnoise_rand_get_ctx_params            16/16  100.0%
-  infnoise_rand_get_seed                  23/25   92.0%
+  infnoise_rand_get_seed                  29/33   87.9%   ← <90% (2 len==0 guards)
   infnoise_rand_gettable_ctx_params        3/3   100.0%
   infnoise_rand_instantiate               25/26   96.2%
   infnoise_rand_lock                       6/6   100.0%

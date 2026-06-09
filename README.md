@@ -23,7 +23,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 
 **Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
-> **Alpha software** (current tag: `v0.0.1-alpha`).  Passes a 28-test integration harness, five libFuzzer harnesses at 97.9% line coverage, a 24-hour endurance run, and the ASan / UBSan / TSan / allocator-failure sanitiser matrix — but has not been **independently** audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy, [docs/Security_Review.txt](docs/Security_Review.txt) for the brief prepared for an external reviewer, and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
+> **Alpha software** (current tag: `v0.0.1-alpha`).  Passes a 28-test integration harness, four libFuzzer harnesses at 96.1% line coverage, a 24-hour endurance run, and the ASan / UBSan / TSan / allocator-failure sanitiser matrix — but has not been **independently** audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy, [docs/Security_Review.txt](docs/Security_Review.txt) for the brief prepared for an external reviewer, and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
 
 ## Requirements
 
@@ -149,7 +149,7 @@ The test arsenal:
 - `make test-asan` / `test-ubsan` / `test-valgrind` — sanitiser builds against the integration harness.
 - `make test-tsan` — ThreadSanitizer concurrency stress, 4 threads × 20 000 iterations × 2 scenarios. No hardware needed.
 - `make test-alloc` — `CRYPTO_set_mem_functions` failure injection at four alloc sites. No hardware needed.
-- `make fuzz FUZZ_CC=clang` — five libFuzzer harnesses (dispatch / params / ossl_params / spill_oracle / provider_init) under `fuzz/`. Coverage 280 of 286 lines (97.9%); 22 of 23 functions ≥ 90%. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
+- `make fuzz FUZZ_CC=clang` — four libFuzzer harnesses (dispatch / ossl_params / spill_oracle / provider_init) under `fuzz/`. Coverage 294 of 306 lines (96.1%); 23 of 23 functions executed. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
 - `make test-soak` / `test-soak-short` — 24-hour / 1-hour endurance run through the provider; details below.
 - `make lint` — cppcheck + `gcc -fanalyzer` static analysis.
 - `make sbom` — SPDX-2.3 software bill of materials at `sbom.spdx.txt`.
@@ -167,6 +167,8 @@ The two plots below visualise the same entropy stream from two angles.  The pair
 The byte-value heatmap shows each byte as a coloured pixel (0 black → 255 white).  Raw output has warmer clumps where the multiplier favours mid-range values; whitening flattens the texture into uniform fine-grain noise.
 
 ![24-hour endurance run: byte-value heatmap](docs/endurance-24h-heatmap.png)
+
+> These plots show that whitening removes *visible structure* — statistical uniformity, not min-entropy.  A uniform-looking byte plane is necessary but not sufficient for unpredictability; a hash of a counter would look identical.  DRBG strength is governed by the seed's measured min-entropy, which is why `get_seed` sizes seeds by min-entropy (~3 bits per output byte) rather than by how random the output looks.  See [docs/ARCHITECTURE.txt](docs/ARCHITECTURE.txt) ("Seed entropy accounting").
 
 ## USB permissions
 

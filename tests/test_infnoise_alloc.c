@@ -174,8 +174,9 @@ static int test_get_seed(void)
 
     // Probe with a single-call failure: the first allocation inside
     // get_seed is OPENSSL_secure_malloc.  max_len must be >= the bytes a
-    // 256-bit request needs (ceil(256/3) = 86) so the alloc is reached
-    // rather than rejected on the length bound.
+    // 256-bit request needs (ceil(256/3)=86 rounded up to a whole 64-byte
+    // block = 128) so the alloc is reached rather than rejected on the
+    // length bound.
     unsigned char *seed = NULL;
     allocator_fail_after(1);
     size_t got = infnoise_rand_get_seed(ctx, &seed, 256, 32, 256,
