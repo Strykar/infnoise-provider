@@ -23,7 +23,7 @@ Written from scratch for the OpenSSL 3.x Provider API.  A legacy `ENGINE` implem
 
 **Independent implementation.** This project is not affiliated with or endorsed by the upstream Infinite Noise TRNG project ([waywardgeek/infnoise](https://github.com/waywardgeek/infnoise)) or the vendor I bought it from (https://leetronics.de/en/shop/infinite-noise-trng/).
 
-> **Alpha software** (current tag: `v0.0.1-alpha`).  Passes a 28-test integration harness, four libFuzzer harnesses at 96.1% line coverage, a 24-hour endurance run, and the ASan / UBSan / TSan / allocator-failure sanitiser matrix — but has not been **independently** audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy, [docs/Security_Review.txt](docs/Security_Review.txt) for the brief prepared for an external reviewer, and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
+> **Alpha software** (current tag: `v0.0.1-alpha`).  Passes a 29-test integration harness, four libFuzzer harnesses at 96.1% line coverage, a 24-hour endurance run, and the ASan / UBSan / TSan / allocator-failure sanitiser matrix — but has not been **independently** audited.  Do not use this to seed production key material without your own review.  See [SECURITY.md](SECURITY.md) for the disclosure policy, [docs/Security_Review.txt](docs/Security_Review.txt) for the brief prepared for an external reviewer, and [docs/TODO.txt](docs/TODO.txt) for the path to beta.
 
 ## Requirements
 
@@ -145,7 +145,7 @@ OPENSSL_CONF=conf/infnoise-provider.cnf openssl genpkey -algorithm EC -pkeyopt e
 
 The test arsenal:
 
-- `make test` — 28-test integration harness across 5 layers (hardware, provider API, integration, statistical, memory safety).
+- `make test` — 29-test integration harness across 5 layers (hardware, provider API, integration, statistical, memory safety).
 - `make test-asan` / `test-ubsan` / `test-valgrind` — sanitiser builds against the integration harness.
 - `make test-tsan` — ThreadSanitizer concurrency stress, 4 threads × 20 000 iterations × 2 scenarios. No hardware needed.
 - `make test-alloc` — `CRYPTO_set_mem_functions` failure injection at four alloc sites. No hardware needed.
@@ -193,7 +193,7 @@ sudo usermod -aG plugdev $USER
 | Path | Description |
 |---|---|
 | [`src/infnoise_prov.c`](src/infnoise_prov.c) | Provider implementation |
-| [`tests/test_infnoise_prov.c`](tests/test_infnoise_prov.c) | Integration test harness (28 tests) |
+| [`tests/test_infnoise_prov.c`](tests/test_infnoise_prov.c) | Integration test harness (29 tests) |
 | [`tests/test_infnoise_tsan.c`](tests/test_infnoise_tsan.c) | ThreadSanitizer concurrency stress (`make test-tsan`) |
 | [`tests/test_infnoise_alloc.c`](tests/test_infnoise_alloc.c) | Allocator-failure injection (`make test-alloc`) |
 | [`tests/test_infnoise_soak.c`](tests/test_infnoise_soak.c) | 24-hour soak: drives `EVP_RAND` through every spill-buffer phase, cycles instantiate/uninstantiate, tracks RSS for leaks, dumps rolling samples for `ent`/`rngtest`/`dieharder` |
