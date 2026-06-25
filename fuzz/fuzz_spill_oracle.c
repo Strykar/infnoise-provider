@@ -238,6 +238,13 @@ static void run_assertion_drives(void *ctx,
     if (got != 0)                                           __builtin_trap();
     if (p != (unsigned char *)(uintptr_t)0xDEADBEEFUL)      __builtin_trap();
 
+    // Boundary: when the whole-block size equals max_len exactly, the seed
+    // fits and must be returned -- the compare is strict '>' (reject only when
+    // it exceeds), not '>='.  256 bits rounds to 128, so with max_len == 128
+    // the seed is accepted.  Pins the strict bound against an off-by-one.
+    p = NULL; got = infnoise_rand_get_seed(ctx, &p, 256, 32, 128, 0, NULL, 0);
+    if (got != 128) __builtin_trap();  OPENSSL_secure_clear_free(p, got);
+
     // Small positive entropy still gets a whole block (64), and min_len=32
     // does not undercut it.
     p = NULL; got = infnoise_rand_get_seed(ctx, &p, 8, 32, 256, 0, NULL, 0);
