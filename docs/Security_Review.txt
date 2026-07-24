@@ -215,7 +215,7 @@ What the reviewer is asked to assess that the above does NOT cover:
     (waywardgeek/infnoise) per its own disclosure policy.  That trust
     covers its continuous health checks, which gate every raw bit before
     whitening; the provider only consumes their verdicts.  See
-    docs/ARCHITECTURE.txt §5 ("Limits of trust").
+    docs/ARCHITECTURE.txt ("Limits of trust").
 
   - libftdi1 and libusb.  Same.
 
@@ -225,7 +225,7 @@ What the reviewer is asked to assess that the above does NOT cover:
     USB device is the genuine FT240XQ-based INM described in the
     upstream README.  There is no firmware upload path to the device,
     and no way for the provider to authenticate one; both are covered in
-    docs/ARCHITECTURE.txt §5 ("Limits of trust").  Adversarial-USB
+    docs/ARCHITECTURE.txt ("Limits of trust").  Adversarial-USB
     scenarios (a malicious device that enumerates as an INM) are outside
     the provider's defensive remit.
 
