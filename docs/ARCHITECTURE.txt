@@ -178,6 +178,38 @@ sharing one context with locking, and 4 threads each owning a context.
     instantiate and generate reject requests exceeding the advertised
     256-bit security strength.
 
+  Limits of trust
+
+    Assumptions, not provider properties.
+
+    No uploadable firmware.  libinfnoise clocks the multiplier itself:
+    switch-enable bytes to an FT240X in synchronous bit-bang mode,
+    comparator outputs sampled in lockstep with the write, 512-byte
+    round trips, one FIFO buffer each way.  The datasheet claim is
+    narrow, "entire USB protocol handled on the chip, no USB specific
+    firmware programming required": no host upload path, not proof the
+    die holds no logic.  Upstream decapped parts to check; rationale and
+    images:
+    https://www.crowdsupply.com/13-37/infinite-noise-trng/updates/parallel-modular-entropy-multiplication-and-the-usb-chip
+
+    No device authentication.  Selection is 0x0403:0x6015 (FTDI FT-X
+    family ID) with a NULL serial, first match.  VID, PID and serial sit
+    in the 2048-byte internal MTP, rewritable over USB via FT_PROG or
+    D2XX with no extra hardware or programming voltage (DS_FT240X v1.5
+    §8.2.1), so they name a device without authenticating one.  Standing
+    in for that: the sample rate is the chip's prescaler, and round
+    trips over 5 ms are dropped (MAX_MICROSEC_FOR_SAMPLES).
+
+    Health checks are libinfnoise's, on every raw bit, pre-whitening.
+    Runs over 20 identical bits fail the read (INFNOISE_ERR_HEALTH).
+    Per buffer, entropy must not fall below target; over a running
+    80 000-bit window it must land within log2(DESIGN_K=1.84) = 0.880
+    ±3% (INM_ACCURACY), i.e. 0.854 to 0.906, so ideal PRNG output at
+    ~1.0 bits/bit fails the upper bound as surely as a stuck source
+    fails the lower.  initInfnoise blocks until the window fills.  The
+    provider consumes verdicts only: rc < 0 → ERROR, rc == 0 → bounded
+    retry above.
+
 
 6. LIBINFNOISE REQUIREMENTS
 ---------------------------
