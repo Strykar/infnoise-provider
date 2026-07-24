@@ -1,0 +1,42 @@
+name: Scorecard
+
+on:
+  # Re-run when branch protection changes, since Scorecard scores it.
+  branch_protection_rule:
+  push:
+    branches: [master]
+  schedule:
+    # Weekly Monday 05:17 UTC, offset from the CodeQL cron.
+    - cron: '17 5 * * 1'
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload the SARIF to code scanning
+      id-token: write          # publish results so the README badge resolves
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes to the OpenSSF API. Required for the badge; also makes
+          # the score public, which is the point of carrying the badge.
+          publish_results: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        with:
+          sarif_file: results.sarif

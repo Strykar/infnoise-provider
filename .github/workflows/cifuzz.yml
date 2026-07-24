@@ -1,10 +1,29 @@
 name: CIFuzz
 
+# Only the inputs the fuzz build actually consumes: the provider source, the
+# harnesses and their mock, and this workflow. Doc, badge and CI-metadata
+# changes do not affect what the fuzzers exercise, so they do not trigger a
+# four-harness run.
 on:
   pull_request:
     branches: [master]
+    paths:
+      - 'src/**'
+      - 'fuzz/**'
+      - 'Makefile'
+      - '.github/workflows/cifuzz.yml'
   push:
     branches: [master]
+    paths:
+      - 'src/**'
+      - 'fuzz/**'
+      - 'Makefile'
+      - '.github/workflows/cifuzz.yml'
+  schedule:
+    # Weekly Monday 06:17 UTC, offset from the other crons. Keeps the corpus
+    # exercised while the code is quiet, which the unfiltered push trigger
+    # used to do incidentally.
+    - cron: '17 6 * * 1'
 
 permissions:
   contents: read
@@ -13,8 +32,8 @@ jobs:
   cifuzz:
     runs-on: ubuntu-latest
 
-    # PRs get short runs for quick regression gating; pushes get more time
-    # to seed the corpus and surface slow-to-trigger paths.
+    # PRs get short runs for quick regression gating; pushes and the weekly
+    # cron get more time to seed the corpus and surface slow-to-trigger paths.
     env:
       FUZZ_SECONDS: ${{ github.event_name == 'pull_request' && '60' || '120' }}
 
@@ -117,7 +136,7 @@ jobs:
           steps.fuzz_ossl_params.outcome   == 'failure' ||
           steps.fuzz_spill_oracle.outcome  == 'failure' ||
           steps.fuzz_provider_init.outcome == 'failure'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-crashes
           path: fuzz/crashes/
