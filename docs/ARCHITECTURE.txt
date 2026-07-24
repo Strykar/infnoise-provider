@@ -196,9 +196,11 @@ sharing one context with locking, and 4 threads each owning a context.
     family ID) with a NULL serial, first match.  VID, PID and serial sit
     in the 2048-byte internal MTP, rewritable over USB via FT_PROG or
     D2XX with no extra hardware or programming voltage (DS_FT240X v1.5
-    §8.2.1), so they name a device without authenticating one.  Standing
-    in for that: the sample rate is the chip's prescaler, and round
-    trips over 5 ms are dropped (MAX_MICROSEC_FOR_SAMPLES).
+    §8.2.1), so they name a device without authenticating one.  The
+    sample rate is the chip's prescaler and round trips over 5 ms are
+    dropped (MAX_MICROSEC_FOR_SAMPLES), so an impostor must match INM
+    timing and statistics.  A bar, not authentication: the checks are
+    statistical, so they catch a degraded source, not a hostile one.
 
     Health checks are libinfnoise's, on every raw bit, pre-whitening.
     Runs over 20 identical bits fail the read (INFNOISE_ERR_HEALTH).
