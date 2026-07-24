@@ -10,14 +10,20 @@ qualified reviewer (OpenSSL Provider API + memory-safety familiarity).
 1. CODE UNDER REVIEW
 --------------------
 
-  src/infnoise_prov.c          ~660 lines of C, single translation unit.
-                               Implements OSSL_OP_RAND seed source backed
-                               by a USB hardware TRNG.
+  src/infnoise_prov.c          747 lines, single translation unit, of
+                               which 471 are code (non-blank,
+                               non-comment).  Implements OSSL_OP_RAND
+                               seed source backed by a USB hardware TRNG.
 
-  fuzz/mock_libinfnoise.c      Hardware stub used by all test/fuzz code.
-                               Not shipped; relevant only for evaluating
-                               whether the test infrastructure faithfully
-                               models real libinfnoise behaviour.
+  fuzz/mock_libinfnoise.c      144 lines, 90 of them code.  Hardware stub
+                               used by all test/fuzz code.  Not shipped;
+                               relevant only for evaluating whether the
+                               test infrastructure faithfully models real
+                               libinfnoise behaviour.
+
+  Total reviewable surface     891 lines, 561 of them code, as of
+                               commit 45d7d16 (2026-06-09), the last change
+                               to the provider source.
 
   src/                         Out of scope: no other provider source files.
 
