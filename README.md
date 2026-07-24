@@ -7,8 +7,8 @@
 [![sanitizers](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/Strykar/infnoise-provider/actions/workflows/sanitizers.yml)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12494/badge)](https://www.bestpractices.dev/projects/12494)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Strykar/infnoise-provider/badge)](https://scorecard.dev/viewer/?uri=github.com/Strykar/infnoise-provider)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev/spec/v1.0/levels)
 [![Coverity Scan](https://scan.coverity.com/projects/Strykar-infnoise-provider/badge.svg)](https://scan.coverity.com/projects/Strykar-infnoise-provider)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev/spec/v1.0/levels)
 [![Language: C](https://img.shields.io/badge/language-C-blue.svg)](https://en.wikipedia.org/wiki/C_(programming_language))
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 
