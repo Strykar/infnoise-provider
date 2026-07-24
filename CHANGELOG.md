@@ -11,6 +11,8 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ## [Unreleased]
 
+## [0.0.2-alpha] - 2026-07-25
+
 ### Changed
 
 - **BREAKING (no-df CTR-DRBG only):** as a consequence of the `get_seed`
@@ -81,6 +83,12 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ### Added
 
+- SLSA Build L3 provenance on tagged releases. Each `v*` tag builds
+  `infnoise.so`, an SPDX SBOM and a `git archive` source tarball, then
+  attests all three, so downstream can verify what produced an artifact
+  with `slsa-verifier`.
+- OpenSSF Scorecard analysis, published and badged, with results in code
+  scanning.
 - Four-target libFuzzer harness suite under `fuzz/`: `fuzz_dispatch` (state
   machine), `fuzz_ossl_params` (OSSL_PARAM surface), `fuzz_spill_oracle`
   (differential test against an in-harness reference; this is what found
@@ -267,5 +275,6 @@ Initial alpha release. The provider implements `OSSL_OP_RAND` for
 OpenSSL 3.x backed by the Infinite Noise TRNG. See README for the
 detailed feature inventory at this snapshot.
 
-[Unreleased]: https://github.com/Strykar/infnoise-provider/compare/v0.0.1-alpha...HEAD
+[Unreleased]: https://github.com/Strykar/infnoise-provider/compare/v0.0.2-alpha...HEAD
+[0.0.2-alpha]: https://github.com/Strykar/infnoise-provider/releases/tag/v0.0.2-alpha
 [0.0.1-alpha]: https://github.com/Strykar/infnoise-provider/releases/tag/v0.0.1-alpha
