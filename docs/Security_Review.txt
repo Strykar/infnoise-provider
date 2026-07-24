@@ -212,24 +212,10 @@ What the reviewer is asked to assess that the above does NOT cover:
 
   - libinfnoise itself.  The provider treats it as a trusted dependency.
     Vulnerabilities in libinfnoise are reported upstream
-    (waywardgeek/infnoise) per its own disclosure policy.
-
-    That trust extends to the continuous health checks, worth knowing
-    before reasoning about T4.  libinfnoise feeds every raw INM bit to
-    its checker before any whitening.  A run of more than 20 identical
-    bits fails the read outright (INFNOISE_ERR_HEALTH), and each 512-bit
-    buffer is released only if a predictor-based min-entropy estimate
-    holds: the running estimate, over at least 80 000 sampled bits,
-    within tolerance either side of the design rate, and that buffer's
-    own entropy not below it.  initInfnoise blocks until the checker has
-    warmed up, so no whitened bytes exist before the source has been
-    assessed.  Data failing either gate is never returned to the caller.
-
-    Whether those are the right checks, and whether the estimator is
-    sound, is upstream's question.  What the provider owns is its
-    response to the two failure signals: readData < 0 → ERROR state,
-    readData == 0 → retry up to 100 times then ERROR (§3.2 covers the
-    cleanse on both paths).
+    (waywardgeek/infnoise) per its own disclosure policy.  That trust
+    covers its continuous health checks, which gate every raw bit before
+    whitening; the provider only consumes their verdicts.  See
+    docs/ARCHITECTURE.txt §5 ("Limits of trust").
 
   - libftdi1 and libusb.  Same.
 
@@ -237,24 +223,16 @@ What the reviewer is asked to assess that the above does NOT cover:
 
   - The Infinite Noise TRNG hardware design.  The provider assumes the
     USB device is the genuine FT240XQ-based INM described in the
-    upstream README.  Adversarial-USB scenarios (a malicious device that
-    enumerates as an INM) are noted in docs/ARCHITECTURE.txt as a limit
-    of trust but are not in the provider's defensive remit.
+    upstream README.  There is no firmware upload path to the device,
+    and no way for the provider to authenticate one; both are covered in
+    docs/ARCHITECTURE.txt §5 ("Limits of trust").  Adversarial-USB
+    scenarios (a malicious device that enumerates as an INM) are outside
+    the provider's defensive remit.
 
     The health checks above do not help here.  They are statistical, so
     they detect a degraded source, not a hostile one: chosen output can
     pass a run-length gate and a min-entropy estimator while remaining
     fully predictable to whoever chose it.
-
-    Worth knowing before spending time on device-firmware attacks: there
-    is no device firmware.  The INM drives its multiplier with an
-    off-the-shelf FT240X USB FIFO in bit-bang mode instead of a
-    microcontroller, so nothing in the signal path is reprogrammable.
-    The designer's rationale, with the decapping work and the caveat
-    about FTDI clones, is in Crowd Supply update 6:
-    https://www.crowdsupply.com/13-37/infinite-noise-trng/updates/parallel-modular-entropy-multiplication-and-the-usb-chip
-    The chip's EEPROM holds USB descriptors and the serial number, not
-    code.
 
 
 6. DELIVERABLES REQUESTED
