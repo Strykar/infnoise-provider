@@ -50,7 +50,7 @@ int main(void)
         return 2;
     }
     char path[PATH_MAX];
-    struct dirent *e;
+    const struct dirent *e;
     while ((e = readdir(d)) != NULL) {
         if (e->d_name[0] == '.') continue;
         if ((size_t)snprintf(path, sizeof(path), "%s/%s",
