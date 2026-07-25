@@ -32,6 +32,15 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
+          # The default GITHUB_TOKEN cannot read classic branch-protection
+          # rules, so the Branch-Protection check reports an internal error and
+          # is left out of the score. Create a fine-grained PAT with
+          # "Administration: read" on this repo, store it as the SCORECARD_TOKEN
+          # secret, and that check starts scoring. Until the secret exists this
+          # falls back to github.token and everything else runs as before.
+          # Note: it then scores the *actual* protection, so harden it first
+          # (enforce admins, block force-push) or the number can drop.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
           # Publishes to the OpenSSF API. Required for the badge; also makes
           # the score public, which is the point of carrying the badge.
           publish_results: true
