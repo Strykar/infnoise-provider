@@ -15,11 +15,13 @@ informs the threat model in docs/Security_Review.txt.
   Avinash H. Duduskar — GitHub @Strykar.
 
   Sole maintainer; all commits, releases, security-advisory replies,
-  and CI configuration changes go through this account.  There is no
-  co-maintainer to fall back on at this scale; users running production
-  builds should pin to a signed-release tag (when available — see §3),
-  not master, so that an account compromise cannot push malicious code
-  into their build pipeline between releases.
+  and CI configuration changes go through this account.  Day-to-day
+  development is the maintainer's alone; @pointshoonya holds repository
+  admin as the continuity successor (see §5) but does not routinely
+  co-develop.  Users running production builds should pin to a
+  signed-release tag (when available — see §3), not master, so that an
+  account compromise cannot push malicious code into their build
+  pipeline between releases.
 
 
 2. AUTHENTICATION
@@ -83,12 +85,39 @@ informs the threat model in docs/Security_Review.txt.
        is sold) until the GitHub account is restored.
 
 
-5. CHANGE LOG
+5. CONTINUITY / SUCCESSION
+--------------------------
+
+  Designated successor: @pointshoonya, granted repository admin
+  (invitation issued 2026-07-25).  If the maintainer dies, is
+  incapacitated, or is otherwise unable to continue, the successor can
+  keep the project running without waiting on the maintainer:
+
+    - Triage: create, close, and label issues; respond to reports.
+    - Changes: review and merge pull requests (admin access clears the
+      branch-protection rules on master).
+    - Releases: push a version tag, which runs the release workflow and
+      produces a SLSA Build L3 provenance attestation.  Release signing
+      is keyless — Sigstore via the workflow's GitHub OIDC identity, not
+      a personal key — so no private key has to change hands for the
+      successor to publish a verifiable release.
+
+  Ultimate fallback: the project is GPL-2.0-or-later, so the community
+  can fork from the last signed release and continue independently.
+
+  When repository-wide PGP tag signing is introduced (§3), a backup of
+  that signing key will be shared with the successor out of band and
+  this section updated to record it.
+
+
+6. CHANGE LOG
 -------------
 
   2026-04-25  Initial governance document, post-Tier-A-E security audit.
   2026-05-16  libinfnoise patches merged into waywardgeek/infnoise master
               (#121, #122).  §3 release gate updated; provider builds
               against upstream directly, no fork required.
+  2026-07-25  Continuity successor designated (@pointshoonya, repo
+              admin).  §1 revised, §5 added.
 
 ================================================================================
