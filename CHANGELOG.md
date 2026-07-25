@@ -11,6 +11,14 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ## [Unreleased]
 
+### Changed
+
+- Moved the test harnesses under `tests/`: `fuzz/` → `tests/fuzz/`,
+  `mutation/` → `tests/mutation/`, and `mull.yml` → `tests/mutation/mull.yml`.
+  Supersedes the earlier decision to keep `fuzz/` at the repository root.
+  `MULL_CONFIG` now points Mull at the relocated config; the fuzz harnesses
+  and the mutation replay driver were updated for the new depth.
+
 ## [0.0.2-alpha] - 2026-07-25
 
 ### Changed
@@ -56,13 +64,13 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   always returns `BATCH_SIZE`, so the defect was latent; a different output
   multiplier or libinfnoise variant could trigger memory disclosure into
   cryptographic output buffers. Found by the new differential oracle
-  fuzz harness. Regression input under `fuzz/regressions/phase3_short_read.bin`.
+  fuzz harness. Regression input under `tests/fuzz/regressions/phase3_short_read.bin`.
   ([#9](https://github.com/Strykar/infnoise-provider/pull/9))
 - Fix zero-outlen NULL pointer-arithmetic UB. `infnoise_rand_generate(out=NULL,
   outlen=0)` walked past the early validation checks and computed
   `unsigned char *w_ptr = NULL; w_ptr += 0;`, which is undefined behaviour
   per ISO C. Caught by UBSan in the CIFuzz workflow's first-PR run.
-  Regression input under `fuzz/regressions/zero_outlen_null_ptr.bin`.
+  Regression input under `tests/fuzz/regressions/zero_outlen_null_ptr.bin`.
   ([#9](https://github.com/Strykar/infnoise-provider/pull/9))
 - Fix FTDI handle leak when `infnoise_rand_uninstantiate` is called on an
   ERROR-state context. The previous condition only deinit'd on READY, then
@@ -89,17 +97,17 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   with `slsa-verifier`.
 - OpenSSF Scorecard analysis, published and badged, with results in code
   scanning.
-- Four-target libFuzzer harness suite under `fuzz/`: `fuzz_dispatch` (state
+- Four-target libFuzzer harness suite under `tests/fuzz/`: `fuzz_dispatch` (state
   machine), `fuzz_ossl_params` (OSSL_PARAM surface), `fuzz_spill_oracle`
   (differential test against an in-harness reference; this is what found
   the phase-3 bug), `fuzz_provider_init` (`OSSL_provider_init` / query /
   get_params / teardown). Mock libinfnoise stub so no USB device is
   needed. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
   ([#9](https://github.com/Strykar/infnoise-provider/pull/9))
-- Persistent fuzz corpus committed under `fuzz/corpus/<harness>/` (~505
+- Persistent fuzz corpus committed under `tests/fuzz/corpus/<harness>/` (~505
   inputs, ~2 MiB) so each CI / local fuzz run starts from accumulated
   coverage rather than empty. Regression-input directory under
-  `fuzz/regressions/` with the two inputs that triggered fixed bugs;
+  `tests/fuzz/regressions/` with the two inputs that triggered fixed bugs;
   cifuzz replays both before the timed runs.
 - ThreadSanitizer concurrency stress test (`make test-tsan`,
   [tests/test_infnoise_tsan.c](tests/test_infnoise_tsan.c)). Two scenarios,
@@ -141,7 +149,7 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
   a misbehaving loader that ignores the return value can't deref garbage.
 - `make mutation` target for release-prep mutation testing using
   [Mull](https://github.com/mull-project/mull). The pool is scoped to
-  `src/infnoise_prov.c` via `mull.yml` so the score reflects provider
+  `src/infnoise_prov.c` via `tests/mutation/mull.yml` so the score reflects provider
   assertions, not harness self-tests. Toolchain pins to `mull-bin` and
   `clang20` on Arch (Mull's plugin loads only into the LLVM major it
   was built against). Run before tagging a signed release;

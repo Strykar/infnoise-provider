@@ -22,7 +22,7 @@
 //     falls back to the regular allocator and our wrapper sees it.
 
 #include "../src/infnoise_prov.c"
-#include "../fuzz/mock_libinfnoise.h"
+#include "fuzz/mock_libinfnoise.h"
 
 #include <openssl/crypto.h>
 #include <stdint.h>

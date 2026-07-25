@@ -38,7 +38,7 @@ We follow the OpenSSF coordinated-disclosure model:
    compromise, and code execution are P0; correctness or DoS bugs are
    P1; hardening recommendations are P2.
 4. **Remediate** by writing a fix, a regression test, and (if
-   applicable) a fuzz seed input under `fuzz/regressions/`.  Fix
+   applicable) a fuzz seed input under `tests/fuzz/regressions/`.  Fix
    timelines: P0 within 30 days, P1 within 90 days, P2 best-effort.
 5. **Coordinate disclosure** with the reporter on a date.  By default
    we follow a 90-day disclosure window from the acknowledgement,

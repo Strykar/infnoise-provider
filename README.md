@@ -151,7 +151,7 @@ The test arsenal:
 - `make test-asan` / `test-ubsan` / `test-valgrind` — sanitiser builds against the integration harness.
 - `make test-tsan` — ThreadSanitizer concurrency stress, 4 threads × 20 000 iterations × 2 scenarios. No hardware needed.
 - `make test-alloc` — `CRYPTO_set_mem_functions` failure injection at four alloc sites. No hardware needed.
-- `make fuzz FUZZ_CC=clang` — four libFuzzer harnesses (dispatch / ossl_params / spill_oracle / provider_init) under `fuzz/`. Coverage 294 of 306 lines (96.1%); 23 of 23 functions executed. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
+- `make fuzz FUZZ_CC=clang` — four libFuzzer harnesses (dispatch / ossl_params / spill_oracle / provider_init) under `tests/fuzz/`. Coverage 294 of 306 lines (96.1%); 23 of 23 functions executed. See [docs/Fuzz_Coverage.txt](docs/Fuzz_Coverage.txt).
 - `make test-soak` / `test-soak-short` — 24-hour / 1-hour endurance run through the provider; details below.
 - `make lint` — cppcheck + `gcc -fanalyzer` static analysis.
 - `make sbom` — SPDX-2.3 software bill of materials at `sbom.spdx.txt`.
@@ -199,10 +199,10 @@ sudo usermod -aG plugdev $USER
 | [`tests/test_infnoise_tsan.c`](tests/test_infnoise_tsan.c) | ThreadSanitizer concurrency stress (`make test-tsan`) |
 | [`tests/test_infnoise_alloc.c`](tests/test_infnoise_alloc.c) | Allocator-failure injection (`make test-alloc`) |
 | [`tests/test_infnoise_soak.c`](tests/test_infnoise_soak.c) | 24-hour soak: drives `EVP_RAND` through every spill-buffer phase, cycles instantiate/uninstantiate, tracks RSS for leaks, dumps rolling samples for `ent`/`rngtest`/`dieharder` |
-| [`fuzz/`](fuzz/) | 4 libFuzzer harnesses (see [`docs/Fuzz_Coverage.txt`](docs/Fuzz_Coverage.txt)) plus the mock libinfnoise stub for fuzz/test builds |
-| [`fuzz/corpus/`](fuzz/corpus/) | Persistent fuzz corpus per harness, committed for replay |
-| [`fuzz/regressions/`](fuzz/regressions/) | Inputs that triggered fixed bugs, replayed first by CIFuzz |
-| [`mutation/`](mutation/) + [`mull.yml`](mull.yml) | Mull mutation-testing harness (release-prep, `make mutation`) |
+| [`tests/fuzz/`](tests/fuzz/) | 4 libFuzzer harnesses (see [`docs/Fuzz_Coverage.txt`](docs/Fuzz_Coverage.txt)) plus the mock libinfnoise stub for fuzz and test builds |
+| [`tests/fuzz/corpus/`](tests/fuzz/corpus/) | Persistent fuzz corpus per harness, committed for replay |
+| [`tests/fuzz/regressions/`](tests/fuzz/regressions/) | Inputs that triggered fixed bugs, replayed first by CIFuzz |
+| [`tests/mutation/`](tests/mutation/) + [`mull.yml`](tests/mutation/mull.yml) | Mull mutation-testing harness (release-prep, `make mutation`) |
 | [`examples/`](examples/) | Drop-in usage examples (Python keygen, systemd scoping) |
 | [`conf/infnoise-provider.cnf`](conf/infnoise-provider.cnf) | OpenSSL configuration |
 | [`conf/openssl.supp`](conf/openssl.supp) | Valgrind suppressions |

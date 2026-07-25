@@ -33,7 +33,7 @@
 //   [u8]  chunks[num_chunks]  - per-readData return size (mod BATCH_SIZE+1)
 //   [...] entropy stream      - source bytes for readData
 
-#include "../src/infnoise_prov.c"
+#include "../../src/infnoise_prov.c"
 #include "mock_libinfnoise.h"
 
 #include <stdint.h>

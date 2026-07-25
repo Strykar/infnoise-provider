@@ -5,7 +5,7 @@ SRCDIR  = src
 TESTDIR = tests
 CONFDIR = conf
 DOCDIR  = docs
-FUZZ_DIR = fuzz
+FUZZ_DIR = tests/fuzz
 
 MANDIR   ?= /usr/share/man
 MAN7_SRC  = $(DOCDIR)/OSSL_PROVIDER-infnoise.7.md
@@ -359,7 +359,11 @@ fuzz-clean:
 # self-tests.
 ################################
 
-MULL_DIR     = mutation
+MULL_DIR     = tests/mutation
+# Mull auto-discovers mull.yml in the working directory (repo root); the
+# config now lives under $(MULL_DIR), so point Mull at it explicitly or
+# the includePaths scoping silently reverts to defaults.
+export MULL_CONFIG = $(MULL_DIR)/mull.yml
 MULL_CLANG  ?= /usr/lib/llvm20/bin/clang-20
 MULL_PLUGIN ?= /usr/lib/mull-ir-frontend-20
 MULL_RUNNER ?= mull-runner-20

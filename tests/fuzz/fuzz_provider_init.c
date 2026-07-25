@@ -13,7 +13,7 @@
 // The fuzzer's input is mostly used to perturb the params arrays (key
 // sets, return-buffer sizes, type mismatches) once init is wired up.
 
-#include "../src/infnoise_prov.c"
+#include "../../src/infnoise_prov.c"
 #include "mock_libinfnoise.h"
 
 #include <stdint.h>
