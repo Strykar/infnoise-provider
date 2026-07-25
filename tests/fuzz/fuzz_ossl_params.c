@@ -16,7 +16,7 @@
 // Remaining bytes (if any) are fed as entropy to the mock, which matters
 // when bit 0 is set and the context needs to proceed past instantiate.
 
-#include "../src/infnoise_prov.c"
+#include "../../src/infnoise_prov.c"
 #include "mock_libinfnoise.h"
 
 #include <stdint.h>

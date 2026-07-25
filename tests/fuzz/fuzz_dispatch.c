@@ -24,7 +24,7 @@
 // trivially deadlocks.  Lock primitives are pure delegation to OpenSSL and
 // are exercised by the sanitizer test suite, not here.
 
-#include "../src/infnoise_prov.c"
+#include "../../src/infnoise_prov.c"
 #include "mock_libinfnoise.h"
 
 #include <stdint.h>

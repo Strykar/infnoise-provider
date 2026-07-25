@@ -9,14 +9,14 @@ on:
     branches: [master]
     paths:
       - 'src/**'
-      - 'fuzz/**'
+      - 'tests/fuzz/**'
       - 'Makefile'
       - '.github/workflows/cifuzz.yml'
   push:
     branches: [master]
     paths:
       - 'src/**'
-      - 'fuzz/**'
+      - 'tests/fuzz/**'
       - 'Makefile'
       - '.github/workflows/cifuzz.yml'
   schedule:
@@ -68,13 +68,13 @@ jobs:
         id: fuzz_dispatch
         continue-on-error: true
         run: |
-          mkdir -p fuzz/crashes
-          corpus=fuzz/corpus/fuzz_dispatch
+          mkdir -p tests/fuzz/crashes
+          corpus=tests/fuzz/corpus/fuzz_dispatch
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_dispatch \
+          ./tests/fuzz/fuzz_dispatch \
             -max_total_time="${FUZZ_SECONDS}" \
-            -artifact_prefix=fuzz/crashes/ \
+            -artifact_prefix=tests/fuzz/crashes/ \
             -print_final_stats=1 \
             $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
 
@@ -82,12 +82,12 @@ jobs:
         id: fuzz_ossl_params
         continue-on-error: true
         run: |
-          corpus=fuzz/corpus/fuzz_ossl_params
+          corpus=tests/fuzz/corpus/fuzz_ossl_params
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_ossl_params \
+          ./tests/fuzz/fuzz_ossl_params \
             -max_total_time="${FUZZ_SECONDS}" \
-            -artifact_prefix=fuzz/crashes/ \
+            -artifact_prefix=tests/fuzz/crashes/ \
             -print_final_stats=1 \
             $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
 
@@ -98,21 +98,21 @@ jobs:
         run: |
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_spill_oracle fuzz/regressions/phase3_short_read.bin
+          ./tests/fuzz/fuzz_spill_oracle tests/fuzz/regressions/phase3_short_read.bin
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_dispatch fuzz/regressions/zero_outlen_null_ptr.bin
+          ./tests/fuzz/fuzz_dispatch tests/fuzz/regressions/zero_outlen_null_ptr.bin
 
       - name: Run fuzz_spill_oracle
         id: fuzz_spill_oracle
         continue-on-error: true
         run: |
-          corpus=fuzz/corpus/fuzz_spill_oracle
+          corpus=tests/fuzz/corpus/fuzz_spill_oracle
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_spill_oracle \
+          ./tests/fuzz/fuzz_spill_oracle \
             -max_total_time="${FUZZ_SECONDS}" \
-            -artifact_prefix=fuzz/crashes/ \
+            -artifact_prefix=tests/fuzz/crashes/ \
             -print_final_stats=1 \
             $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
 
@@ -120,12 +120,12 @@ jobs:
         id: fuzz_provider_init
         continue-on-error: true
         run: |
-          corpus=fuzz/corpus/fuzz_provider_init
+          corpus=tests/fuzz/corpus/fuzz_provider_init
           ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
           UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-          ./fuzz/fuzz_provider_init \
+          ./tests/fuzz/fuzz_provider_init \
             -max_total_time="${FUZZ_SECONDS}" \
-            -artifact_prefix=fuzz/crashes/ \
+            -artifact_prefix=tests/fuzz/crashes/ \
             -print_final_stats=1 \
             $([ -d "$corpus" ] && ls "$corpus" &>/dev/null && echo "$corpus")
 
@@ -139,7 +139,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fuzz-crashes
-          path: fuzz/crashes/
+          path: tests/fuzz/crashes/
           if-no-files-found: warn
 
       # Fail the job after all four fuzzers have had a chance to run.

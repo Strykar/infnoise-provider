@@ -25,7 +25,7 @@
 
 extern int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
-#define CORPUS_DIR "fuzz/corpus/fuzz_spill_oracle"
+#define CORPUS_DIR "tests/fuzz/corpus/fuzz_spill_oracle"
 
 static void run_file(const char *path)
 {

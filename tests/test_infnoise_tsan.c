@@ -22,7 +22,7 @@
 // compose, so this is its own binary, not a fuzz harness extension).
 
 #include "../src/infnoise_prov.c"
-#include "../fuzz/mock_libinfnoise.h"
+#include "fuzz/mock_libinfnoise.h"
 
 #include <pthread.h>
 #include <stdio.h>
