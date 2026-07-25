@@ -4,7 +4,7 @@
 
 Honest accounting of what fuzz testing exercises in src/infnoise_prov.c, what
 it doesn't, and why.  Numbers are line coverage from a 60-second run of each
-harness against the persistent fuzz/corpus/<harness>/ seed pool.
+harness against the persistent tests/fuzz/corpus/<harness>/ seed pool.
 
 
 1. SUMMARY
@@ -31,8 +31,8 @@ harness against the persistent fuzz/corpus/<harness>/ seed pool.
 2. HARNESSES
 ------------
 
-Four libFuzzer harnesses live under fuzz/.  Each builds with
--fsanitize=fuzzer,address,undefined and links against fuzz/mock_libinfnoise.o
+Four libFuzzer harnesses live under tests/fuzz/.  Each builds with
+-fsanitize=fuzzer,address,undefined and links against tests/fuzz/mock_libinfnoise.o
 in place of real libinfnoise (no USB device needed).
 
   fuzz_dispatch        State-machine harness.  The fuzzer drives a sequence
@@ -53,7 +53,7 @@ in place of real libinfnoise (no USB device needed).
                        script.  Asserts byte-for-byte equality plus output-
                        buffer cleanse-on-failure.  This harness found the
                        phase-3 short-read memory disclosure.  Also the Mull
-                       mutation testing target (mull.yml).
+                       mutation testing target (tests/mutation/mull.yml).
 
   fuzz_provider_init   Provider-level entry points.  Calls OSSL_provider_init
                        directly, walks the returned dispatch table, queries
@@ -178,25 +178,25 @@ the current libFuzzer harness set:
   # Build coverage-instrumented variants alongside.
   COV='-O0 -g -fprofile-instr-generate -fcoverage-mapping \
        -I/usr/include/libftdi1 -I/usr/include/libusb-1.0'
-  clang $COV -c fuzz/mock_libinfnoise.c -o fuzz/cov_mock.o
+  clang $COV -c tests/fuzz/mock_libinfnoise.c -o tests/fuzz/cov_mock.o
   for h in fuzz_spill_oracle fuzz_dispatch fuzz_ossl_params \
            fuzz_provider_init; do
-      clang $COV -fsanitize=fuzzer fuzz/$h.c fuzz/cov_mock.o \
-            -lcrypto -o fuzz/${h}_cov
+      clang $COV -fsanitize=fuzzer tests/fuzz/$h.c tests/fuzz/cov_mock.o \
+            -lcrypto -o tests/fuzz/${h}_cov
   done
 
   # Run each for 60 seconds.
   for h in fuzz_spill_oracle fuzz_dispatch fuzz_ossl_params \
            fuzz_provider_init; do
       LLVM_PROFILE_FILE=/tmp/cov_${h}.profraw \
-          ./fuzz/${h}_cov -max_total_time=60
+          ./tests/fuzz/${h}_cov -max_total_time=60
   done
 
   # Merge and report.
   llvm-profdata merge -sparse /tmp/cov_*.profraw -o /tmp/cov.profdata
   llvm-cov report -show-functions \
-      -object fuzz/fuzz_spill_oracle_cov   -object fuzz/fuzz_dispatch_cov  \
-      -object fuzz/fuzz_ossl_params_cov    -object fuzz/fuzz_provider_init_cov \
+      -object tests/fuzz/fuzz_spill_oracle_cov   -object tests/fuzz/fuzz_dispatch_cov  \
+      -object tests/fuzz/fuzz_ossl_params_cov    -object tests/fuzz/fuzz_provider_init_cov \
       -instr-profile=/tmp/cov.profdata     -sources src/infnoise_prov.c
 
   # Per-line annotation of uncovered code.

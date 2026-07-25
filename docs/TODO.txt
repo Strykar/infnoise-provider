@@ -54,14 +54,14 @@ CI and testing
   [x] GitHub Actions: Coverity Scan (weekly cron)
   [x] CIFuzz workflow — runs all 4 libFuzzer targets on every PR
       (60 s/target) and push (120 s/target); replays the regression
-      inputs under fuzz/regressions/ before the timed runs so a
+      inputs under tests/fuzz/regressions/ before the timed runs so a
       regression of a fixed bug fails fast.  (Was 5 targets; the
       fuzz_params boundary harness was retired as redundant with
       fuzz_dispatch's state-machine sequencer.)
   [x] make test-tsan — ThreadSanitizer concurrency stress.
   [x] make test-alloc — allocator-failure injection (4 sites).
   [x] make sbom — SPDX-2.3 software bill of materials.
-  [x] Fuzz corpus persistence (fuzz/corpus/<harness>/, ~505 files).
+  [x] Fuzz corpus persistence (tests/fuzz/corpus/<harness>/, ~505 files).
   [-] OpenSSF Scorecard — intentionally NOT used.  Removed in PR #7;
       structural single-maintainer factors (no co-maintainer, no
       signed releases yet, no published package, single-person

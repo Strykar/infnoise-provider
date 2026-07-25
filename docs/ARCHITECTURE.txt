@@ -318,7 +318,7 @@ Allocator-failure injection — tests/test_infnoise_alloc.c (make test-alloc):
   documented failure indicator without partial state (see §5
   "Secure seed allocation" caveat).
 
-libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
+libFuzzer harness suite — tests/fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
 
   fuzz_dispatch        State-machine coverage across 4 ctx slots.
                        Drives 32-bit fuzzer-controlled outlen and
@@ -329,13 +329,13 @@ libFuzzer harness suite — fuzz/ (make fuzz, see docs/Fuzz_Coverage.txt):
                        reference implementation of the spill-buffer
                        contract.  Found the phase-3 short-read
                        memory disclosure (commit history).  Also the
-                       Mull mutation testing target (mull.yml).
+                       Mull mutation testing target (tests/mutation/mull.yml).
   fuzz_provider_init   OSSL_provider_init / query / get_params /
                        teardown.
 
   Coverage: 294/306 lines (96.1%), 21/23 functions ≥ 90% line cov.
-  Persistent corpus committed under fuzz/corpus/<harness>/; the two
-  inputs that triggered fixed bugs live under fuzz/regressions/ and
+  Persistent corpus committed under tests/fuzz/corpus/<harness>/; the two
+  inputs that triggered fixed bugs live under tests/fuzz/regressions/ and
   are replayed by CIFuzz on every PR.
 
 Endurance run — tests/test_infnoise_soak.c (make test-soak):

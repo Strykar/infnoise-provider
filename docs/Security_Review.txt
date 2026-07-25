@@ -15,7 +15,7 @@ qualified reviewer (OpenSSL Provider API + memory-safety familiarity).
                                non-comment).  Implements OSSL_OP_RAND
                                seed source backed by a USB hardware TRNG.
 
-  fuzz/mock_libinfnoise.c      144 lines, 90 of them code.  Hardware stub
+  tests/fuzz/mock_libinfnoise.c      144 lines, 90 of them code.  Hardware stub
                                used by all test/fuzz code.  Not shipped;
                                relevant only for evaluating whether the
                                test infrastructure faithfully models real
@@ -27,7 +27,7 @@ qualified reviewer (OpenSSL Provider API + memory-safety familiarity).
 
   src/                         Out of scope: no other provider source files.
 
-  tests/, fuzz/                In scope only insofar as they validate the
+  tests/, tests/fuzz/                In scope only insofar as they validate the
                                security claims; not part of the shipped
                                attack surface.
 
@@ -180,7 +180,7 @@ Available to the reviewer:
     line (294/306), 23/23 functions executed.  See docs/Fuzz_Coverage.txt
     for breakdown.
 
-  - Differential oracle harness (fuzz/fuzz_spill_oracle.c) catches
+  - Differential oracle harness (tests/fuzz/fuzz_spill_oracle.c) catches
     correctness bugs in the spill buffer logic, not just crashes.  This
     found the phase-3 short-read disclosure (fixed 2026-04-25).
 
