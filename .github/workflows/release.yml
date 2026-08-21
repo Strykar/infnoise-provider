@@ -4,7 +4,8 @@ on:
   push:
     tags: ['v*']
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   # Builds the release artifacts and emits their sha256 digests for the

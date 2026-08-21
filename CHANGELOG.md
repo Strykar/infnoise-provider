@@ -11,8 +11,21 @@ cryptographic review described in [docs/Security_Review.txt](docs/Security_Revie
 
 ## [Unreleased]
 
+### Added
+
+- zizmor static analysis of the GitHub Actions workflows, run on `.github/`
+  changes and weekly, with results in code scanning alongside CodeQL and
+  Scorecard. `.github/zizmor.yml` records the sole exception to hash-pinning:
+  the SLSA generator resolves its version from the tag and fails when called
+  by commit SHA.
+
 ### Changed
 
+- Hardened the workflows against zizmor's findings. Every checkout now sets
+  `persist-credentials: false`, which previously only `release.yml` did; the
+  Coverity submit step passes the repository owner's email through `env`
+  instead of interpolating it into the shell command; and `release.yml` grants
+  `contents: read` rather than `read-all`.
 - Moved the test harnesses under `tests/`: `fuzz/` → `tests/fuzz/`,
   `mutation/` → `tests/mutation/`, and `mull.yml` → `tests/mutation/mull.yml`.
   Supersedes the earlier decision to keep `fuzz/` at the repository root.

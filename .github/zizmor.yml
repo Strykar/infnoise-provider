@@ -1,0 +1,12 @@
+# zizmor static analysis for the workflows in this repo.
+# https://docs.zizmor.sh/configuration/
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # The SLSA generator resolves its own version from the tag and verifies
+        # its provenance against it, so it fails when called by commit SHA.
+        # Narrow the exception to that one reusable workflow.
+        # https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/generic/README.md
+        slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml: ref-pin
+        "*": hash-pin
