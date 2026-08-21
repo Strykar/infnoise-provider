@@ -1,0 +1,40 @@
+name: zizmor
+
+# Static analysis of the workflows themselves. Only .github/ changes can move
+# the result, so ordinary source PRs do not run it.
+on:
+  push:
+    branches: [master]
+    paths: ['.github/**']
+  pull_request:
+    branches: [master]
+    paths: ['.github/**']
+  schedule:
+    # Weekly Monday 07:17 UTC, offset from the other crons. New zizmor releases
+    # add audits, so re-run against unchanged workflows the way CodeQL does.
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: Analyze workflows
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload the SARIF to code scanning
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reads .github/zizmor.yml. Runs the default "regular" persona: pedantic
+      # adds concurrency-limits and anonymous-definition noise this repo does
+      # not care about. github.token enables the online audits that check for
+      # impostor commits and known-vulnerable actions.
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
